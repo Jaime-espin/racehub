@@ -23,6 +23,7 @@ Preparamos un entorno virtual de Python para aislar las dependencias del proyect
 python -m venv venv
 source venv/bin/activate  # O venv\Scripts\activate en Windows
 pip install fastapi sqlalchemy psycopg2-binary langchain-groq tavily-python python-dotenv pydantic python-dateutil jinja2 uvicorn
+```
 
 **Herramientas clave:**
 * **SQLAlchemy:** ORM que permite a Python "hablar" con SQL usando objetos.
@@ -63,10 +64,13 @@ Para ver los datos, creamos una API con **FastAPI**:
    GROQ_API_KEY=tu_clave_aqui
    TAVILY_API_KEY=tu_clave_aqui
    DATABASE_URL=postgresql://usuario:password@localhost:5432/racehub
+   ```
 2. **Añadir una carrera:**
    ```bash
    python src/main.py
+   ```
 3. **Ver el Calendario:**
     ```bash
    uvicorn src.api:app --reload
+   ```
    Abre tu navegador en: http://127.0.0.1:8000
