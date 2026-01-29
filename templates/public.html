@@ -15,10 +15,6 @@
             </div>
         </div>
         
-        <div class="search-box">
-            <input type="text" id="nombreInput" placeholder="Ej: Maratón de Nueva York 2025...">
-            <button onclick="buscarCarrera()" id="btnBuscar">✨ Añadir</button>
-        </div>
         <div id="loading">
             <div class="spinner"></div> Analizando webs oficiales, espera unos segundos...
         </div>
@@ -72,7 +68,6 @@
                     <th>Deporte</th>
                     <th>Lugar</th>
                     <th>Estado</th>
-                    <th>Acción</th>
                 </tr>`;
 
             carreras.forEach(c => {
@@ -85,11 +80,6 @@
                     <td>${c.deporte}</td>
                     <td>${c.localizacion}</td>
                     <td><span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span></td>
-                    <td>
-                        <button onclick="eliminarCarrera(${c.id}, '${c.nombre}')" class="btn-eliminar" title="Eliminar carrera">
-                            🗑️
-                        </button>
-                    </td>
                 </tr>`;
             });
             html += '</table>';
@@ -133,11 +123,6 @@
                             <p><strong>📍</strong> ${c.localizacion}</p>
                             <p><strong>🏃</strong> ${c.deporte} - ${c.distancia_resumen || ''}</p>
                             <span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>
-                        </div>
-                        <div class="carrera-acciones">
-                            <button onclick="eliminarCarrera(${c.id}, '${c.nombre}')" class="btn-eliminar" title="Eliminar carrera">
-                                🗑️
-                            </button>
                         </div>
                     </div>`;
                 });

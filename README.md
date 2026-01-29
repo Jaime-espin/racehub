@@ -58,19 +58,53 @@ Para ver los datos, creamos una API con **FastAPI**:
 
 ## 🛠️ Cómo ejecutar el proyecto
 
-1. **Configuración:**
-   Crea un archivo `.env` en la raíz con tus claves:
+1. **Configuración inicial:**
+   
+   Copia el archivo de ejemplo y configura tus claves:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Edita `.env` con tus credenciales:
    ```env
    GROQ_API_KEY=tu_clave_aqui
    TAVILY_API_KEY=tu_clave_aqui
    DATABASE_URL=postgresql://usuario:password@localhost:5432/racehub
    ```
-2. **Añadir una carrera:**
+
+2. **Instalar dependencias:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # En Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   ```
+
+3. **Crear la base de datos:**
+   ```bash
+   psql -U jaime -d racehub -f db/schema.sql
+   ```
+
+4. **Añadir una carrera (CLI):**
    ```bash
    python src/main.py
+   # Introduce el nombre de la carrera cuando se te solicite
    ```
-3. **Ver el Calendario:**
-    ```bash
+
+5. **Iniciar el servidor web:**
+   ```bash
    uvicorn src.api:app --reload
    ```
    Abre tu navegador en: http://127.0.0.1:8000
+
+---
+
+## 📝 Mejoras Recientes
+
+- ✅ Refactorización de código duplicado
+- ✅ Validación de variables de entorno
+- ✅ Mejora en el manejo de errores
+- ✅ Validaciones en el schema de datos
+- ✅ .gitignore completo
+- ✅ Documentación de configuración (.env.example)
+
+Ver [MEJORAS.md](MEJORAS.md) para más detalles.
