@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 from dateutil import parser
 from sqlalchemy.orm import Session
-from database import SessionLocal, CarreraDB
+from src.database import SessionLocal, CarreraDB
 
 load_dotenv()
 
@@ -69,33 +69,41 @@ class CarreraSchema(BaseModel):
             print(f"⚠️ Advertencia: Deporte '{v}' no está en la lista estándar")
         return v
 
+class ResultadoSchema(BaseModel):
+    tiempo_oficial: Optional[str] = Field(None, description="Tiempo Oficial (ej: '1:30:45'). Si no se encuentra, dejar null")
+    posicion_general: Optional[int] = Field(None, description="Posición numérica absoluta. Null si no hay datos.")
+    posicion_categoria: Optional[int] = Field(None, description="Posición en su categoría. Null si no hay datos.")
+    ritmo_medio: Optional[str] = Field(None, description="Ritmo medio (ej: '4:30 min/km'). Null si no hay datos.")
+
 #---Motores---
 tavily = TavilyClient(api_key=TAVILY_API_KEY)
 llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0, api_key=GROQ_API_KEY)
-llm_estructurado = llm.with_structured_output(CarreraSchema)
+llm_estructurado_carreras = llm.with_structured_output(CarreraSchema)
+llm_estructurado_resultado = llm.with_structured_output(ResultadoSchema)
 #Convierte a un modelo de lenguaje (que es un generador de
 #texto probabilístico) en una función de software 
 #determinista que devuelve un objeto Python.
 
 # --- 2. FUNCIÓN DE GUARDADO ---
-def guardar_en_db(datos_ia: CarreraSchema):
+def guardar_en_db(datos_ia: CarreraSchema, user_id: int):
     db: Session = SessionLocal()
     try:
         fecha_objeto = parser.parse(datos_ia.fecha).date()
 
         nueva_carrera = CarreraDB(
+            user_id=user_id, # Asignamos al usuario
             nombre=datos_ia.nombre_oficial,
-            deporte=datos_ia.deporte, # Ahora sí lo pasamos
+            deporte=datos_ia.deporte, 
             fecha=fecha_objeto,
             localizacion=datos_ia.lugar,
             distancia_resumen=", ".join(datos_ia.distancias),
             url_oficial=datos_ia.url_oficial,
-            estado_inscripcion=datos_ia.estado_inscripcion.lower() # Normalizamos a minúsculas
+            estado_inscripcion=datos_ia.estado_inscripcion.lower() 
         )
 
-        db.add(nueva_carrera) #mete la carrera en una lista de espera
-        db.commit() #Escribe
-        print(f"✅ Guardada: {datos_ia.nombre_oficial} ({datos_ia.deporte})")
+        db.add(nueva_carrera) 
+        db.commit() 
+        print(f"✅ Guardada: {datos_ia.nombre_oficial} (User {user_id})")
     
     except Exception as e:
         #Si intentas insertar una carrera duplicada (misma fecha y nombre), la base de datos lanzará un error.
@@ -149,7 +157,7 @@ def buscar_y_extraer_datos(nombre_a_buscar: str, max_results: int = 6):
     """
     
     try:
-        datos_extraidos = llm_estructurado.invoke(prompt)
+        datos_extraidos = llm_estructurado_carreras.invoke(prompt)
         return datos_extraidos
     except Exception as e:
         print(f"❌ Error al procesar con el LLM: {e}")
@@ -198,6 +206,113 @@ def procesar_carrera_desde_web(nombre_a_buscar: str):
         print(f"❌ Error al procesar carrera desde web: {e}")
         raise
 
+def buscar_resultado_usuario(nombre_carrera: str, año: int, nombre: str):
+    # ESTRATEGIA DE BÚSQUEDA MEJORADA
+    # 1. Quitamos comillas para permitir formatos "Apellidos, Nombre"
+    # 2. Añadimos palabras clave típicas de listados
+    query_principal = f"{nombre_carrera} {año} clasificación {nombre}"
+    
+    print(f"🔎 Buscando: {query_principal}...")
+    
+    try:
+        # Buscamos con un poco más de profundidad (max_results=10) para pillar listados largos
+        busqueda = tavily.search(query=query_principal, search_depth="advanced", max_results=10)
+        
+        # Si no hay suerte, intentamos buscar el PDF o la web de resultados general
+        if not busqueda.get('results'):
+             print("⚠️ Búsqueda específica vacía, intentando buscar listados generales...")
+             query_general = f"{nombre_carrera} {año} resultados pdf completo"
+             busqueda = tavily.search(query=query_general, search_depth="advanced", max_results=5)
+             
+        if not busqueda.get('results'):
+            # Devolvemos un objeto vacío en lugar de lanzar error, para que la API lo maneje
+            return ResultadoSchema(tiempo_oficial=None, posicion_general=None, posicion_categoria=None, ritmo_medio=None)
+            
+        # Preparamos el contexto incluyendo el Título de la página, que a veces tiene la fecha o el evento real
+        contexto = "\n".join([
+            f"--- FUENTE: {res['url']} ---\nTÍTULO: {res['title']}\nCONTENIDO: {res['content']}\n" 
+            for res in busqueda['results']
+        ])
+        
+    except Exception as e:
+        print(f"❌ Error en la búsqueda con Tavily: {e}")
+        raise
+    
+    prompt = f"""
+    Eres un experto rastreador de resultados deportivos.
+    
+    OBJETIVO: Encontrar el tiempo de "{nombre}" en "{nombre_carrera}" del año {año}.
+    
+    CONTEXTO (Resultados de búsqueda):
+    {contexto}
+    
+    INSTRUCCIONES DE EXTRACCIÓN:
+    1. FLEXIBILIDAD DE NOMBRE: Busca "{nombre}" pero acepta variaciones como:
+       - "Apellidos, Nombre" (Ej: "Espín Rodríguez, Jaime")
+       - Mayúsculas/Minúsculas
+       - Falta de tildes (Ej: "Jaime Espin")
+    
+    2. SI ENCUENTRAS EL DATO:
+       - Extrae Tiempo (hh:mm:ss), Posición General y Categoría si existen.
+       - Ritmo (min/km).
+    
+    3. SI NO ENCUENTRAS AL CORREDOR EXACTO:
+       - Devuelve null en los campos. 
+       - NO alucines datos.
+       
+    4. IMPORTANTE: Muchas veces los resultados están en formato "Pos. Nombre Tiempo". Busca ese patrón.
+    """
+    
+    try:
+        datos_extraidos = llm_estructurado_resultado.invoke(prompt)
+        return datos_extraidos
+    except Exception as e:
+        print(f"❌ Error al procesar con el LLM: {e}")
+        raise
+
+# --- 2.1 FUNCIÓN PARA GUARDAR RESULTADOS ---
+def guardar_resultado_db(datos_ia: ResultadoSchema, nombre_carrera: str, año: int, user_id: int):
+    db: Session = SessionLocal()
+    try:
+        # 1. Primero buscamos la carrera EN LA LISTA DEL USUARIO
+        carrera_existente = db.query(CarreraDB).filter(
+            CarreraDB.user_id == user_id,
+            CarreraDB.nombre.ilike(f"%{nombre_carrera}%")
+        ).first()
+
+        if not carrera_existente:
+             # Si no existe, buscamos si tiene alguna carrera ese año con nombre similar
+             # Esto es un fallback por si el nombre varía ligeramente
+             print(f"⚠️ Búsqueda exacta falló. Buscando aproximada para user {user_id}...")
+             carrera_existente = db.query(CarreraDB).filter(
+                CarreraDB.user_id == user_id,
+                CarreraDB.nombre.ilike(f"%{nombre_carrera[:5]}%") 
+             ).first()
+             
+        if not carrera_existente:
+            print(f"⚠️ No se puede guardar el resultado: La carrera '{nombre_carrera}' no existe en la BD del usuario {user_id}.")
+            return
+
+        # 2. Creamos el registro del resultado
+        cat_info = f"Pos. Cat: {datos_ia.posicion_categoria}" if datos_ia.posicion_categoria else ""
+        nuevo_resultado = ResultadoDB(
+            carrera_id=carrera_existente.id,
+            tiempo_oficial=datos_ia.tiempo_oficial or "No encontrado",
+            posicion_general=datos_ia.posicion_general,
+            ritmo_medio=datos_ia.ritmo_medio,
+            comentarios=f"Auto {año}. {cat_info}"
+        )
+
+        db.add(nuevo_resultado)
+        db.commit()
+        print(f"✅ Resultado guardado para: {nombre_carrera}")
+
+    except Exception as e:
+        print(f"❌ Error al guardar resultado: {e}")
+    finally:
+        db.close()
+
 if __name__ == "__main__":
     carrera = input("Carrera a añadir: ")
+    usuario = input("Añadir usuario: ")
     ejecutar_proyecto(carrera)

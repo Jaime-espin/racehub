@@ -92,7 +92,7 @@ Para ver los datos, creamos una API con **FastAPI**:
 
 5. **Iniciar el servidor web:**
    ```bash
-   uvicorn src.api:app --reload
+   python -m uvicorn src.api:app --reload
    ```
    Abre tu navegador en: http://127.0.0.1:8000
 

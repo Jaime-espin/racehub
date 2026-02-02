@@ -92,45 +92,71 @@ Es como una hoja de Excel gigante que vive en tu ordenador, pero mucho más pote
 - Es rápida para buscar datos
 - Garantiza que no se pierda información
 
-### Tabla: `carreras`
+### Esquema Relacional de Tablas
+
+RaceHub utiliza tres tablas conectadas para gestionar usuarios, carreras y resultados:
+
+#### 1. Tabla: `users` (Usuarios)
+Guarda la información de cada cuenta.
 
 ```sql
-CREATE TABLE carreras (
-    id SERIAL PRIMARY KEY,              -- Número único para cada carrera
-    nombre VARCHAR(255) NOT NULL,       -- "Maratón de Nueva York"
-    deporte VARCHAR(100) NOT NULL,      -- "Running", "Trail", etc.
-    fecha DATE NOT NULL,                -- 2026-11-01
-    localizacion VARCHAR(255),          -- "Nueva York, USA"
-    distancia_resumen VARCHAR(255),     -- "42.2 km, 21.1 km"
-    url_oficial TEXT,                   -- "https://..."
-    estado_inscripcion VARCHAR(50),     -- "abierta", "cerrada", "pendiente"
-    CONSTRAINT carrera_unica UNIQUE (nombre, fecha)
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    nombre_completo VARCHAR(255) NOT NULL, -- "Jaime Espín"
+    email VARCHAR(255) UNIQUE NOT NULL,    -- "jaime@example.com"
+    creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP //
 );
 ```
 
-**Explicación de cada columna:**
+#### 2. Tabla: `carreras` (Eventos)
+Ahora incluye una referencia al usuario (`user_id`).
 
-- `id SERIAL PRIMARY KEY`: Número automático (1, 2, 3...). La "llave" única de cada fila.
-- `VARCHAR(255)`: Texto corto (máximo 255 caracteres)
-- `TEXT`: Texto largo (sin límite)
-- `DATE`: Fecha en formato YYYY-MM-DD
-- `NOT NULL`: Este campo es obligatorio
-- `UNIQUE (nombre, fecha)`: No puede haber dos carreras con el mismo nombre y fecha
+```sql
+CREATE TABLE carreras (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, -- ¡NUEVO!
+    nombre VARCHAR(255) NOT NULL,
+    deporte VARCHAR(100) NOT NULL,
+    fecha DATE NOT NULL,
+    localizacion VARCHAR(255),
+    distancia_resumen VARCHAR(255),
+    url_oficial TEXT,
+    estado_inscripcion VARCHAR(50) DEFAULT 'pendiente',
+    CONSTRAINT carrera_usuario_unica UNIQUE (user_id, nombre, fecha)
+);
+```
+
+**Novedad:**
+- `user_id`: Vincula cada carrera con su dueño.
+- `ON DELETE CASCADE`: Si borras al usuario, se borran sus carreras automáticamente.
+
+#### 3. Tabla: `resultados` (Clasificaciones)
+Guarda tus marcas personales de carreras finalizadas.
+
+```sql
+CREATE TABLE resultados (
+    id SERIAL PRIMARY KEY,
+    carrera_id INTEGER REFERENCES carreras(id), -- Conexión con la tabla de arriba
+    tiempo_oficial VARCHAR(50),                 -- "01:30:45"
+    posicion_general INTEGER,                   -- 154
+    ritmo_medio VARCHAR(50),                    -- "4:15 min/km"
+    comentarios TEXT                            -- Para guardar categoría o notas
+);
+```
 
 ### Comandos SQL Básicos
 
 ```sql
--- Ver todas las carreras
-SELECT * FROM carreras;
+-- Ver todas las carreras de un usuario específico (ID 1)
+SELECT * FROM carreras WHERE user_id = 1;
 
--- Ver solo carreras futuras
-SELECT * FROM carreras WHERE fecha >= '2026-01-27';
+-- Ver resultados conseguidos
+SELECT * FROM resultados;
 
--- Eliminar una carrera por ID
-DELETE FROM carreras WHERE id = 5;
-
--- Actualizar una carrera
-UPDATE carreras SET estado_inscripcion = 'cerrada' WHERE id = 3;
+-- Unir tablas para ver carrera + tiempo
+SELECT c.nombre, c.fecha, r.tiempo_oficial 
+FROM carreras c 
+JOIN resultados r ON c.id = r.carrera_id;
 ```
 
 ---
@@ -214,25 +240,43 @@ Base = declarative_base()
 La clase "madre" de la que heredarán todos tus modelos (tablas).
 
 ```python
+class UserDB(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre_completo = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True)
+    
+    # 1 Usuario -> N Carreras
+    carreras = relationship("CarreraDB", back_populates="usuario")
+
 class CarreraDB(Base):
-    __tablename__ = "carreras"  # Nombre de la tabla en PostgreSQL
+    __tablename__ = "carreras"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id")) # Clave Foránea
     nombre = Column(String, nullable=False)
-    deporte = Column(String, nullable=False)
-    fecha = Column(Date)
-    localizacion = Column(String)
-    distancia_resumen = Column(String)
-    url_oficial = Column(String)
-    estado_inscripcion = Column(String, default="pendiente")
+    # ... otros campos ...
+    
+    # Relaciones
+    usuario = relationship("UserDB", back_populates="carreras")
+    resultados = relationship("ResultadoDB", back_populates="carrera")
+
+class ResultadoDB(Base):
+    __tablename__ = "resultados"
+
+    id = Column(Integer, primary_key=True)
+    carrera_id = Column(Integer, ForeignKey("carreras.id"))
+    tiempo_oficial = Column(String)
+    posicion_general = Column(Integer)
+    # ...
+    
+    carrera = relationship("CarreraDB", back_populates="resultados")
 ```
 
 **Explicación:**
-- `CarreraDB` es una clase Python que representa la tabla `carreras`
-- `Column(Integer)`: Una columna de números enteros
-- `primary_key=True`: Esta columna es la clave primaria (ID único)
-- `nullable=False`: No puede estar vacío
-- `default="pendiente"`: Valor por defecto si no se especifica
+- `UserDB`, `CarreraDB`, `ResultadoDB`: Son las 3 clases que representan tus tablas.
+- `ForeignKey`: Dice "esta columna apunta al ID de otra tabla".
+- `relationship`: Magia de SQLAlchemy que permite navegar entre objetos (ej: `usuario.carreras` te da la lista de todas sus carreras).
 
 ```python
 Base.metadata.create_all(bind=engine)
@@ -283,129 +327,74 @@ if not GROQ_API_KEY:
 - `pydantic`: Valida que los datos tengan la estructura correcta
 - `dateutil`: Maneja fechas de forma inteligente
 
-#### Schema de Validación con Pydantic
+#### Schemas de Validación con Pydantic
+
+Tenemos dos esquemas principales ahora:
+
+1. **`CarreraSchema`**: Para datos generales del evento (Nombre, Fecha, Lugar).
+2. **`ResultadoSchema`**: Para datos de rendimiento personal.
 
 ```python
-class CarreraSchema(BaseModel):
-    nombre_oficial: str = Field(description="Nombre oficial", min_length=3)
-    deporte: str = Field(description="Obligatorio: Running, Trail, etc.")
-    fecha: str = Field(description="Formato YYYY-MM-DD")
-    lugar: str = Field(min_length=2)
-    distancias: List[str] = Field(min_items=1)
-    url_oficial: Optional[str] = None
-    estado_inscripcion: str = Field(description="Solo: abierta, cerrada, pendiente")
+class ResultadoSchema(BaseModel):
+    tiempo_oficial: Optional[str] = Field(None, description="Tiempo (ej: '1:30:45')")
+    posicion_general: Optional[int] = Field(None)
+    posicion_categoria: Optional[int] = Field(None)
+    ritmo_medio: Optional[str] = Field(None)
+```
+
+**Nota Importante:** Usamos `Optional` porque en muchos listados puede faltar algún dato y no queremos que la IA falle.
+
+#### Inteligencia Artificial: Dos Cerebros Especializados
+
+```python
+# Cerebro 1: Experto en buscar Eventos
+llm_estructurado_carreras = llm.with_structured_output(CarreraSchema)
+
+# Cerebro 2: Experto en buscar Resultados en Clasificaciones
+llm_estructurado_resultado = llm.with_structured_output(ResultadoSchema)
+```
+
+Hemos dividido la lógica en dos para mejorar la precisión.
+
+#### Nueva Función: `buscar_resultado_usuario()`
+
+Esta es la joya de la nueva actualización. Busca tu nombre en listados históricos.
+
+```python
+def buscar_resultado_usuario(nombre_carrera, año, nombre_corredor):
+    # ESTRATEGIA:
+    # 1. Buscamos nombres exactos y variantes (con/sin tildes)
+    # 2. Si falla, busca listados PDF generales
     
-    @validator('estado_inscripcion')
-    def validar_estado(cls, v):
-        estados_validos = ['abierta', 'cerrada', 'pendiente']
-        v_lower = v.lower()
-        if v_lower not in estados_validos:
-            raise ValueError(f"Estado debe ser uno de: {', '.join(estados_validos)}")
-        return v_lower
-```
-
-**¿Qué es un Schema?**
-Es un "molde" que define cómo deben ser los datos. Si la IA devuelve algo que no encaja, Pydantic rechaza los datos.
-
-**Componentes:**
-- `str`: Tipo texto
-- `List[str]`: Lista de textos (ej: `["42km", "21km"]`)
-- `Optional[str]`: Puede ser texto o `None` (vacío)
-- `Field(min_length=3)`: Mínimo 3 caracteres
-- `@validator`: Función que verifica un campo específico
-
-**Ejemplo de validación:**
-```python
-# ✅ VÁLIDO
-datos = CarreraSchema(
-    nombre_oficial="Behobia",
-    deporte="Trail",
-    fecha="2025-11-09",
-    lugar="San Sebastián",
-    distancias=["20km"],
-    estado_inscripcion="abierta"
-)
-
-# ❌ INVÁLIDO - lanza error
-datos = CarreraSchema(
-    nombre_oficial="B",  # Muy corto (mínimo 3)
-    # ... resto de campos
-)
-```
-
-#### Inicialización de los "Motores" de IA
-
-```python
-tavily = TavilyClient(api_key=TAVILY_API_KEY)
-llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0, api_key=GROQ_API_KEY)
-llm_estructurado = llm.with_structured_output(CarreraSchema)
-```
-
-**¿Qué hace cada línea?**
-
-1. **`tavily = TavilyClient(...)`**
-   - Crea un cliente de búsqueda
-   - Es como tener tu propio Google especializado
-
-2. **`llm = ChatGroq(...)`**
-   - LLM = Large Language Model (Modelo de Lenguaje Grande)
-   - Es el "cerebro" de IA (Llama 3.3 con 70 mil millones de parámetros)
-   - `temperature=0`: Respuestas deterministas (siempre iguales), sin creatividad
-
-3. **`llm_estructurado = llm.with_structured_output(CarreraSchema)`**
-   - Convierte el LLM (que normalmente devuelve texto libre) en una función que SOLO devuelve datos con la estructura de `CarreraSchema`
-   - Si la IA no puede llenar todos los campos, falla
-
-#### Función: `guardar_en_db()`
-
-```python
-def guardar_en_db(datos_ia: CarreraSchema):
-    db: Session = SessionLocal()  # Abre una sesión con PostgreSQL
-    try:
-        # Convierte "2025-11-09" (texto) a un objeto Date de Python
-        fecha_objeto = parser.parse(datos_ia.fecha).date()
-
-        # Crea un objeto CarreraDB (del modelo de SQLAlchemy)
-        nueva_carrera = CarreraDB(
-            nombre=datos_ia.nombre_oficial,
-            deporte=datos_ia.deporte,
-            fecha=fecha_objeto,
-            localizacion=datos_ia.lugar,
-            distancia_resumen=", ".join(datos_ia.distancias),  # ["42km", "21km"] → "42km, 21km"
-            url_oficial=datos_ia.url_oficial,
-            estado_inscripcion=datos_ia.estado_inscripcion.lower()
-        )
-
-        db.add(nueva_carrera)  # Añade a la "cola de espera"
-        db.commit()  # ¡AQUÍ se guarda de verdad en PostgreSQL!
-        print(f"✅ Guardada: {datos_ia.nombre_oficial}")
+    query = f'"{nombre_carrera}" {año} clasificación "{nombre_corredor}"'
     
-    except Exception as e:
-        db.rollback()  # Si hay error, cancela todo
-        if "unique_violation" in str(e).lower() or "duplicate key" in str(e).lower():
-            print(f"⚠️ La carrera '{datos_ia.nombre_oficial}' ya existe")
-        else:
-            print(f"❌ Error: {e}")
-    finally:
-        db.close()  # Siempre cierra la sesión
+    # ... Búsqueda con Tavily ...
+    
+    prompt = """
+    Eres un experto rastreador de resultados.
+    INSTRUCCIONES:
+    1. Busca coincidencias de: {nombre_corredor}
+    2. Extrae Tiempo, Posición y Ritmo.
+    3. Si no está seguro, devuelve NULL (no inventes).
+    """
+    
+    return llm_estructurado_resultado.invoke(prompt)
 ```
 
-**Flujo:**
-1. Abre conexión a la BD
-2. Convierte los datos
-3. Intenta guardar
-4. Si funciona → commit (confirmar)
-5. Si falla → rollback (cancelar)
-6. Siempre cierra la conexión
+#### Funciones de Guardado (`database.py`)
 
-**`try-except-finally` explicado:**
+Ahora `guardar_en_db` y `guardar_resultado_db` requieren un `user_id`.
+
 ```python
-try:
-    # Código que PUEDE fallar
-except Exception as e:
-    # Si falló, ejecuta esto
-finally:
-    # Siempre ejecuta esto (haya error o no)
+def guardar_en_db(datos, user_id):
+    # Guarda carrera asociada a un usuario específico
+    ...
+
+def guardar_resultado_db(datos, carrera, año, user_id):
+    # 1. Busca la carrera en la lista de ESE usuario
+    # 2. Si existe, guarda el resultado asociado
+    # 3. Si ya existía, evita duplicados
+    ...
 ```
 
 #### Función: `buscar_y_extraer_datos()`
@@ -615,7 +604,18 @@ def listar_carreras(db: Session = Depends(get_db)):
     return carreras
 ```
 
-#### Endpoints (Rutas)
+#### Autenticación y Endpoints (Rutas)
+
+**0. Simulación de Usuario (¡NUEVO!)**
+
+El proyecto ahora es multi-usuario (en teoría). Para simplificar el desarrollo, simulamos el login:
+
+```python
+def get_current_user():
+    # TEMPORAL: Siempre devuelve el Usuario con ID 1
+    # En el futuro, esto leería un token o cookie segura
+    return 1
+```
 
 **1. Página principal**
 
@@ -625,40 +625,58 @@ async def leer_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 ```
 
-- `@app.get("/")`: Cuando alguien visita `http://localhost:8000/`
-- `response_class=HTMLResponse`: Devuelve HTML, no JSON
-- `templates.TemplateResponse()`: Renderiza el archivo HTML
+Renderiza la interfaz principal (sin cambios).
 
-**2. Listar carreras**
+**2. Listar carreras (FILTRADAS por usuario)**
+
+Ahora cada usuario ve solo SUS carreras.
 
 ```python
-@app.get("/carreras", response_model=List[CarreraOut])
-def listar_carreras(db: Session = Depends(get_db)):
-    carreras = db.query(CarreraDB).all()
-    return carreras
+@app.get("/carreras/guardadas")
+async def listar_carreras(user_id: int = Depends(get_current_user)):
+    db = SessionLocal()
+    # Filtramos por user_id
+    carreras = db.query(CarreraDB).filter(CarreraDB.user_id == user_id).all()
+    # ... código para formatear JSON ...
 ```
 
-- `@app.get("/carreras")`: GET a `http://localhost:8000/carreras`
-- `response_model=List[CarreraOut]`: La respuesta es una lista de `CarreraOut`
-- `db.query(CarreraDB).all()`: Equivalente a `SELECT * FROM carreras`
+**3. Buscar Resultados (El cerebro de la App)**
 
-**3. Buscar carrera**
+Este endpoint conecta la base de datos con la IA para encontrar tu clasificación.
 
 ```python
-@app.post("/carreras/buscar")
-def buscar_carrera(solicitud: SolicitudCarrera):
+@app.get("/resultados/buscar/{carrera_id}")
+async def buscar_resultado(carrera_id: int, user_id: int = Depends(get_current_user)):
+    db = SessionLocal()
+    
+    # a. Obtenemos datos de la carrera y del usuario
+    carrera = db.query(CarreraDB).filter(CarreraDB.id == carrera_id).first()
+    usuario = db.query(UserDB).filter(UserDB.id == user_id).first()
+    
+    # b. Llamamos a la IA con el nombre REAL del usuario
     try:
-        resultado = buscar_y_extraer_datos(solicitud.nombre, max_results=5)
-        return {
-            "nombre_oficial": resultado.nombre_oficial,
-            "deporte": resultado.deporte,
-            # ... más campos
-        }
+        resultado_ia = buscar_resultado_usuario(
+            carrera.nombre, 
+            carrera.year, 
+            usuario.nombre
+        )
+        # ... lógica de guardado si hay éxito ...
+        return {"status": "success", "data": resultado_ia}
+        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "error", "message": str(e)}
 ```
 
-- `@app.post()`: Método POST (para enviar datos)
+**4. Gestión de Perfil**
+
+Permite al usuario cambiar el nombre que usa la IA para buscarlo.
+
+```python
+@app.post("/perfil")
+async def actualizar_perfil(data: dict, user_id: int = Depends(get_current_user)):
+    # Actualiza el nombre en la tabla users
+    # ...
+```
 - `solicitud: SolicitudCarrera`: FastAPI automáticamente valida el JSON recibido
 - `HTTPException`: Devuelve un error HTTP al navegador
 
@@ -775,41 +793,74 @@ document.getElementById('lista').innerHTML = '<p>Hola</p>';
 
 ### 5.3 Código de `index.html` Explicado
 
-#### Variables Globales
+#### Variables Globales y Caché
 
 ```javascript
-let datosEncontrados = null;      // Almacena los datos que encontró la IA
-let vistaActual = 'tabla';        // 'tabla' o 'calendario'
-let carrerasCache = [];           // Caché de carreras para no pedir al servidor cada vez
+let datosEncontrados = null;      // Última búsqueda de IA
+let vistaActual = 'tabla';        // Vista activa
+let carrerasCache = {};           // ¡CLAVE! Almacena carreras + resultados ya buscados
 ```
 
-#### Función: `cambiarVista()`
+**La importancia de `carrerasCache`:**
+Ahora no es solo una lista. Es un objeto donde guardamos los resultados de las carreras pasadas para no tener que volver a consultar a la IA (que es lenta y costosa) cada vez que el usuario hace clic.
+
+#### Lógica de Detección de Fecha (`cargarCarreras`)
+
+Cuando cargamos las carreras, el sistema "piensa":
 
 ```javascript
-function cambiarVista(vista) {
-    vistaActual = vista;  // Actualiza la vista actual
-    
-    // Toggle de clases CSS (añade/quita la clase 'active')
-    document.getElementById('btnTabla').classList.toggle('active', vista === 'tabla');
-    document.getElementById('btnCalendario').classList.toggle('active', vista === 'calendario');
-    
-    // Renderiza las carreras con la nueva vista
-    renderizarCarreras(carrerasCache);
+const diferenciaDias = (fechaCarrera - hoy) / (1000 * 60 * 60 * 24);
+
+if (diferenciaDias < -1) {
+    // Es una carrera PASADA
+    // Mostramos botón de MEDALLA 🏅
+} else {
+    // Es FUTURA
+    // Mostramos botón de ELIMINAR 🗑️
 }
 ```
 
-**`.toggle(className, condition)`**:
-- Si `condition` es `true` → añade la clase
-- Si `condition` es `false` → quita la clase
+#### El Cerebro del Frontend: `gestionResultado(id)`
 
-#### Función: `cargarCarreras()`
+Esta función es la que da la sensación de "magia" instantánea.
+
+1. **Revisa la memoria local:** ¿Ya tengo el resultado en `carrerasCache[id].resultado`?
+2. **Si SÍ:** Muestra el modal INSTANTÁNEAMENTE.
+3. **Si NO:**
+   - Muestra "Cargando..."
+   - Llama a la API `/resultados/buscar/{id}`
+   - Cuando la API responde, GUARDA el dato en `carrerasCache` para la próxima vez.
+   - Muestra el modal.
 
 ```javascript
-async function cargarCarreras() {
-    // Petición HTTP GET a http://localhost:8000/carreras
-    const response = await fetch('/carreras');
+async function gestionResultado(id) {
+    const carrera = carrerasCache[id];
     
-    // Convierte la respuesta JSON a un array de JavaScript
+    // CACHÉ: Si ya lo tenemos, no molestamos al servidor
+    if (carrera.resultado) {
+        mostrarModalResultado(carrera.resultado);
+        return;
+    }
+    
+    // API: Si no, buscamos
+    mostrarCargando();
+    const res = await fetch(`/resultados/buscar/${id}`);
+    const data = await res.json();
+    
+    if (data.status === 'success') {
+        carrera.resultado = data.data; // ¡Guardamos en caché!
+        mostrarModalResultado(data.data);
+    }
+}
+```
+
+#### Perfil de Usuario
+
+Para que la búsqueda funcione, necesitamos saber **a quién buscar**. 
+
+- Creamos un modal que pide tu "Nombre de Corredor".
+- Se guarda en el servidor (`POST /perfil`) y en una variable global.
+- Se usa automáticamente en cada búsqueda de resultados.
     const carreras = await response.json();
     
     // Guarda en caché
@@ -1397,23 +1448,31 @@ pip install -r requirements.txt
 cp .env.example .env
 nano .env  # Editar y añadir tus claves API
 
-# 6. Crear base de datos
+# 6. Crear (o REINICIAR) base de datos
+# ¡OJO! El nuevo script schema.sql borra las tablas antiguas para añadir
+# el sistema de usuarios. Si tenías datos, se perderán.
 psql -U jaime -d racehub -f db/schema.sql
 ```
 
 ### 8.2 Uso Diario
 
 ```bash
-# Terminal 1: Activar entorno virtual
+# 1. Activar entorno virtual
 cd /home/jaime/01Proyectos/racehub
 source venv/bin/activate
 
-# Terminal 2: Iniciar servidor web
-PYTHONPATH=src uvicorn src.api:app --reload
+# 2. Iniciar servidor web
+python -m uvicorn src.api:app --reload
 
-# Abrir navegador en:
-# http://localhost:8000
+# 3. Abrir navegador en:
+# http://127.0.0.1:8000
+# o también: http://localhost:8000
 ```
+
+**Explicación de comandos:**
+- `python -m uvicorn`: Ejecuta uvicorn como módulo de Python (asegura imports correctos)
+- `src.api:app`: Ubicación del objeto FastAPI (archivo `src/api.py`, variable `app`)
+- `--reload`: Reinicia automáticamente el servidor cuando cambias código (solo en desarrollo)
 
 ### 8.3 Añadir Carrera desde Terminal (CLI)
 
@@ -1519,5 +1578,3 @@ git push origin main
 - **Session**: Conversación temporal con la base de datos
 
 ---
-
-**¿Necesitas más explicaciones sobre algún concepto específico?** ¡Consulta esta guía siempre que lo necesites! 🚀

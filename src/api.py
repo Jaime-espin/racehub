@@ -3,11 +3,11 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from typing import List
-from database import SessionLocal, CarreraDB
+from typing import List, Optional
+from src.database import SessionLocal, CarreraDB, UserDB, ResultadoDB
 from pydantic import BaseModel
 from datetime import date
-from main import buscar_y_extraer_datos, guardar_en_db, CarreraSchema
+from src.main import buscar_y_extraer_datos, guardar_en_db, CarreraSchema, buscar_resultado_usuario, guardar_resultado_db
 from pathlib import Path
 
 app = FastAPI(title="RaceHub API")
@@ -20,7 +20,29 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-# 1. Definimos cómo queremos enviar los datos al navegador
+# --- Helper de Autenticación (Simulado) ---
+def get_current_user(db: Session):
+    # En esta fase, simulamos que siempre es el usuario ID 1
+    # Si no existe, lo creamos
+    user = db.query(UserDB).filter(UserDB.id == 1).first()
+    if not user:
+        user = UserDB(id=1, nombre_completo="Usuario Demo", email="demo@racehub.com")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return user
+
+# 1. Schemas de Respuesta
+class ResultadoOut(BaseModel):
+    id: int
+    tiempo_oficial: str | None
+    posicion_general: int | None
+    ritmo_medio: str | None
+    comentarios: str | None
+
+    class Config:
+        from_attributes = True
+
 class CarreraOut(BaseModel):
     id: int
     nombre: str
@@ -30,6 +52,7 @@ class CarreraOut(BaseModel):
     distancia_resumen: str | None
     url_oficial: str | None
     estado_inscripcion: str | None
+    resultados: List[ResultadoOut] = []
 
     class Config:
         from_attributes = True
@@ -42,7 +65,10 @@ def get_db():
     finally:
         db.close()
 
-# --- Modelos para recibir datos desde la web ---
+# --- Modelos para recibir datos ---
+class UsuarioUpdate(BaseModel):
+    nombre_completo: str
+
 class SolicitudCarrera(BaseModel):
     nombre: str
 
@@ -54,6 +80,25 @@ class ConfirmacionCarrera(BaseModel):
     distancias: List[str]
     url_oficial: str | None
     estado_inscripcion: str
+
+class SolicitudResultado(BaseModel):
+    nombre_carrera: str
+    anio: int
+    # nombre_corredor ya no es obligatorio si el usuario tiene perfil
+    nombre_corredor: Optional[str] = None
+
+# --- Gestión de Perfil ---
+@app.get("/perfil")
+def obtener_perfil(db: Session = Depends(get_db)):
+    user = get_current_user(db)
+    return {"nombre": user.nombre_completo, "email": user.email}
+
+@app.post("/perfil")
+def actualizar_perfil(datos: UsuarioUpdate, db: Session = Depends(get_db)):
+    user = get_current_user(db)
+    user.nombre_completo = datos.nombre_completo
+    db.commit()
+    return {"mensaje": "Perfil actualizado", "nombre": user.nombre_completo}
 
 # --- Endpoint para buscar (sin guardar) ---
 @app.post("/carreras/buscar")
@@ -75,8 +120,9 @@ def buscar_carrera(solicitud: SolicitudCarrera):
 
 # --- Endpoint para confirmar y guardar ---
 @app.post("/carreras/confirmar")
-def confirmar_carrera(datos: ConfirmacionCarrera):
+def confirmar_carrera(datos: ConfirmacionCarrera, db: Session = Depends(get_db)):
     try:
+        user = get_current_user(db)
         # Convertimos los datos confirmados a CarreraSchema y guardamos
         carrera_schema = CarreraSchema(
             nombre_oficial=datos.nombre_oficial,
@@ -87,8 +133,45 @@ def confirmar_carrera(datos: ConfirmacionCarrera):
             url_oficial=datos.url_oficial,
             estado_inscripcion=datos.estado_inscripcion
         )
-        guardar_en_db(carrera_schema)
+        guardar_en_db(carrera_schema, user_id=user.id)
         return {"mensaje": "Carrera guardada correctamente", "nombre": datos.nombre_oficial}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Endpoint para buscar y guardar Resultados ---
+@app.post("/resultados/buscar")
+def buscar_resultado(solicitud: SolicitudResultado, db: Session = Depends(get_db)):
+    try:
+        user = get_current_user(db)
+        nombre_busqueda = solicitud.nombre_corredor
+        
+        # Si no viene nombre, usamos el del perfil
+        if not nombre_busqueda:
+            nombre_busqueda = user.nombre_completo
+
+        # 1. Buscamos el resultado con la IA
+        datos_resultado = buscar_resultado_usuario(solicitud.nombre_carrera, solicitud.anio, nombre_busqueda)
+        
+        # 2. Guardamos solo si encontramos algo útil, o guardamos "No encontrado"
+        guardar_resultado_db(datos_resultado, solicitud.nombre_carrera, solicitud.anio, user_id=user.id)
+        
+        # 3. Verificamos si realmente se encontró info
+        if not datos_resultado.tiempo_oficial:
+             return {
+                "encontrado": False,
+                "mensaje": "No se encontraron tiempos exactos en las webs públicas.",
+                "corredor": nombre_busqueda
+            }
+
+        return {
+            "encontrado": True,
+            "mensaje": "Búsqueda completada",
+            "corredor": nombre_busqueda,
+            "tiempo": datos_resultado.tiempo_oficial,
+            "posicion": datos_resultado.posicion_general,
+            "posicion_categoria": datos_resultado.posicion_categoria,
+            "ritmo": datos_resultado.ritmo_medio
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -99,8 +182,9 @@ async def leer_index(request: Request):
 # 3. El "Endpoint": La dirección URL donde estarán tus carreras
 @app.get("/carreras", response_model=List[CarreraOut])
 def listar_carreras(db: Session = Depends(get_db)):
-    # Esta línea es puro SQLAlchemy: "Tráeme todas las carreras"
-    carreras = db.query(CarreraDB).all()
+    user = get_current_user(db)
+    # Filtramos por el usuario actual
+    carreras = db.query(CarreraDB).filter(CarreraDB.user_id == user.id).all()
     return carreras
 
 # --- Endpoint para eliminar una carrera ---

@@ -8,13 +8,34 @@
 <body>
     <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin: 0;">🏃‍♂️ RaceHub</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <h1 style="margin: 0;">🏃‍♂️ RaceHub</h1>
+                <button onclick="abrirPerfil()" style="font-size: 0.8em; padding: 5px 10px; background: #34495e;">⚙️ Mi Perfil</button>
+            </div>
             <div class="toggle-container">
                 <button id="btnTabla" class="toggle-btn active" onclick="cambiarVista('tabla')">📋 Tabla</button>
                 <button id="btnCalendario" class="toggle-btn" onclick="cambiarVista('calendario')">📅 Calendario</button>
             </div>
         </div>
         
+        <!-- Modal Perfil -->
+        <div id="modalPerfil" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+             <div style="background:white; padding:30px; border-radius:10px; width:400px; max-width:90%;">
+                <h2 style="margin-top:0;">Mi Perfil de Corredor</h2>
+                <p>Configura tu nombre para que RaceHub encuentre tus resultados automáticamente.</p>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Nombre Completo (para clasificaciones):</label>
+                    <input type="text" id="perfilNombre" placeholder="Ej: Jaime Espín Rodríguez" style="width:100%; padding:8px; box-sizing:border-box;">
+                </div>
+                
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button onclick="cerrarPerfil()" style="background:#95a5a6;">Cancelar</button>
+                    <button onclick="guardarPerfil()" style="background:#27ae60;">Guardar</button>
+                </div>
+             </div>
+        </div>
+
         <div class="search-box">
             <input type="text" id="nombreInput" placeholder="Ej: Maratón de Nueva York 2025...">
             <button onclick="buscarCarrera()" id="btnBuscar">✨ Añadir</button>
@@ -28,240 +49,6 @@
         <div id="lista-carreras">Cargando datos...</div>
     </div>
 
-    <script>
-        let datosEncontrados = null;
-        let vistaActual = 'tabla'; // 'tabla' o 'calendario'
-        let carrerasCache = [];
-
-        function cambiarVista(vista) {
-            vistaActual = vista;
-            document.getElementById('btnTabla').classList.toggle('active', vista === 'tabla');
-            document.getElementById('btnCalendario').classList.toggle('active', vista === 'calendario');
-            renderizarCarreras(carrerasCache);
-        }
-
-        async function cargarCarreras() {
-            const response = await fetch('/carreras');
-            const carreras = await response.json();
-            carrerasCache = carreras;
-            renderizarCarreras(carreras);
-        }
-
-        function renderizarCarreras(carreras) {
-            const listaDiv = document.getElementById('lista-carreras');
-            
-            if (!carreras || carreras.length === 0) {
-                listaDiv.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">📭 No se añadió ninguna carrera todavía.</p>';
-                return;
-            }
-            
-            carreras.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-            
-            if (vistaActual === 'tabla') {
-                renderizarTabla(carreras, listaDiv);
-            } else {
-                renderizarCalendario(carreras, listaDiv);
-            }
-        }
-
-        function renderizarTabla(carreras, listaDiv) {
-            let html = `<table>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Carrera</th>
-                    <th>Deporte</th>
-                    <th>Lugar</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                </tr>`;
-
-            carreras.forEach(c => {
-                html += `<tr>
-                    <td>${c.fecha}</td>
-                    <td>
-                        <strong>${c.nombre}</strong><br>
-                        <small style="color:#777">${c.distancia_resumen || ''}</small>
-                    </td>
-                    <td>${c.deporte}</td>
-                    <td>${c.localizacion}</td>
-                    <td><span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span></td>
-                    <td>
-                        <button onclick="eliminarCarrera(${c.id}, '${c.nombre}')" class="btn-eliminar" title="Eliminar carrera">
-                            🗑️
-                        </button>
-                    </td>
-                </tr>`;
-            });
-            html += '</table>';
-            listaDiv.innerHTML = html;
-        }
-
-        function renderizarCalendario(carreras, listaDiv) {
-            // Agrupar carreras por mes
-            const carrerasPorMes = {};
-            carreras.forEach(c => {
-                const fecha = new Date(c.fecha);
-                const mesKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-                if (!carrerasPorMes[mesKey]) {
-                    carrerasPorMes[mesKey] = [];
-                }
-                carrerasPorMes[mesKey].push(c);
-            });
-
-            let html = '<div class="calendario-container">';
-            
-            Object.keys(carrerasPorMes).sort().forEach(mesKey => {
-                const [ano, mes] = mesKey.split('-');
-                const nombreMes = new Date(ano, mes - 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-                
-                html += `<div class="mes-grupo">
-                    <h3 class="mes-titulo">${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)}</h3>
-                    <div class="carreras-mes">`;
-                
-                carrerasPorMes[mesKey].forEach(c => {
-                    const fecha = new Date(c.fecha);
-                    const dia = fecha.getDate();
-                    const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
-                    
-                    html += `<div class="carrera-card">
-                        <div class="carrera-fecha">
-                            <div class="dia">${dia}</div>
-                            <div class="dia-semana">${diaSemana}</div>
-                        </div>
-                        <div class="carrera-info">
-                            <h4>${c.nombre}</h4>
-                            <p><strong>📍</strong> ${c.localizacion}</p>
-                            <p><strong>🏃</strong> ${c.deporte} - ${c.distancia_resumen || ''}</p>
-                            <span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>
-                        </div>
-                        <div class="carrera-acciones">
-                            <button onclick="eliminarCarrera(${c.id}, '${c.nombre}')" class="btn-eliminar" title="Eliminar carrera">
-                                🗑️
-                            </button>
-                        </div>
-                    </div>`;
-                });
-                
-                html += '</div></div>';
-            });
-            
-            html += '</div>';
-            listaDiv.innerHTML = html;
-        }
-
-        async function buscarCarrera() {
-            const input = document.getElementById('nombreInput');
-            const btn = document.getElementById('btnBuscar');
-            const loading = document.getElementById('loading');
-            const confirmacionDiv = document.getElementById('confirmacion');
-            const nombre = input.value;
-
-            if (!nombre) return alert("Escribe un nombre primero");
-
-            // Ocultar confirmación previa si existe
-            confirmacionDiv.style.display = 'none';
-
-            // Interfaz: Bloqueamos botón y mostramos carga
-            btn.disabled = true;
-            loading.style.display = 'block';
-
-            try {
-                const response = await fetch('/carreras/buscar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: nombre })
-                });
-
-                if (response.ok) {
-                    datosEncontrados = await response.json();
-                    
-                    // Mostrar datos encontrados para confirmación
-                    confirmacionDiv.innerHTML = `
-                        <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60;">
-                            <h3 style="margin-top: 0; color: #27ae60;">📋 Datos encontrados por la IA:</h3>
-                            <p><strong>🏆 Nombre:</strong> ${datosEncontrados.nombre_oficial}</p>
-                            <p><strong>🚴 Deporte:</strong> ${datosEncontrados.deporte}</p>
-                            <p><strong>📅 Fecha:</strong> ${datosEncontrados.fecha}</p>
-                            <p><strong>📍 Lugar:</strong> ${datosEncontrados.lugar}</p>
-                            <p><strong>📏 Distancias:</strong> ${datosEncontrados.distancias.join(', ')}</p>
-                            <p><strong>🔗 URL:</strong> ${datosEncontrados.url_oficial || 'No disponible'}</p>
-                            <p><strong>📝 Estado:</strong> ${datosEncontrados.estado_inscripcion}</p>
-                            
-                            <div style="margin-top: 20px; display: flex; gap: 10px;">
-                                <button onclick="confirmarGuardado()" style="background: #27ae60;">✅ Confirmar y Guardar</button>
-                                <button onclick="cancelarBusqueda()" style="background: #e74c3c;">❌ Cancelar</button>
-                            </div>
-                        </div>
-                    `;
-                    confirmacionDiv.style.display = 'block';
-                    input.value = ''; // Limpiar input
-                } else {
-                    const error = await response.json();
-                    alert("❌ Error: " + (error.detail || "No se pudo procesar"));
-                }
-            } catch (err) {
-                alert("❌ Error de conexión: " + err);
-            } finally {
-                // Interfaz: Restauramos estado
-                btn.disabled = false;
-                loading.style.display = 'none';
-            }
-        }
-
-        async function confirmarGuardado() {
-            if (!datosEncontrados) return;
-
-            try {
-                const response = await fetch('/carreras/confirmar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(datosEncontrados)
-                });
-
-                if (response.ok) {
-                    document.getElementById('confirmacion').style.display = 'none';
-                    cargarCarreras();
-                    alert("✅ ¡Carrera guardada correctamente!");
-                    datosEncontrados = null;
-                } else {
-                    const error = await response.json();
-                    alert("❌ Error al guardar: " + (error.detail || "No se pudo guardar"));
-                }
-            } catch (err) {
-                alert("❌ Error de conexión al guardar");
-            }
-        }
-
-        function cancelarBusqueda() {
-            document.getElementById('confirmacion').style.display = 'none';
-            datosEncontrados = null;
-            alert("❌ Operación cancelada");
-        }
-
-        async function eliminarCarrera(id, nombre) {
-            if (!confirm(`¿Estás seguro de eliminar "${nombre}"?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/carreras/${id}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    cargarCarreras();
-                    alert(`✅ Carrera "${nombre}" eliminada correctamente`);
-                } else {
-                    const error = await response.json();
-                    alert("❌ Error al eliminar: " + (error.detail || "No se pudo eliminar"));
-                }
-            } catch (err) {
-                alert("❌ Error de conexión al eliminar");
-            }
-        }
-
-        // Cargar al inicio
-        cargarCarreras();
-    </script>
+    <script src="/static/script.js"></script>
 </body>
 </html>
