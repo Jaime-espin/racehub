@@ -77,7 +77,15 @@ class ResultadoSchema(BaseModel):
 
 #---Motores---
 tavily = TavilyClient(api_key=TAVILY_API_KEY)
-llm = ChatGroq(model_name="llama-3.3-70b-versatile", temperature=0, api_key=GROQ_API_KEY)
+
+# Configuración con reintentos para manejar Rate Limits (Error 429)
+# Aumentamos max_retries y timeout para dar margen en casos de saturación
+llm = ChatGroq(
+    model_name="llama-3.3-70b-versatile", 
+    temperature=0, 
+    api_key=GROQ_API_KEY,
+    max_retries=3
+)
 llm_estructurado_carreras = llm.with_structured_output(CarreraSchema)
 llm_estructurado_resultado = llm.with_structured_output(ResultadoSchema)
 #Convierte a un modelo de lenguaje (que es un generador de
@@ -160,6 +168,11 @@ def buscar_y_extraer_datos(nombre_a_buscar: str, max_results: int = 6):
         datos_extraidos = llm_estructurado_carreras.invoke(prompt)
         return datos_extraidos
     except Exception as e:
+        error_str = str(e)
+        if "429" in error_str or "Rate limit" in error_str:
+            print(f"⏳ Límite de cuota excedido (Groq 429). Intentando reintentar o abortar.")
+            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Por favor espera unos minutos antes de intentar de nuevo.")
+        
         print(f"❌ Error al procesar con el LLM: {e}")
         raise
 
@@ -267,6 +280,10 @@ def buscar_resultado_usuario(nombre_carrera: str, año: int, nombre: str):
         datos_extraidos = llm_estructurado_resultado.invoke(prompt)
         return datos_extraidos
     except Exception as e:
+        error_str = str(e)
+        if "429" in error_str or "Rate limit" in error_str:
+            print(f"⏳ Límite de cuota excedido (Groq 429).")
+            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Intenta más tarde.")
         print(f"❌ Error al procesar con el LLM: {e}")
         raise
 
