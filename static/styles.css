@@ -227,6 +227,17 @@ th {
     transform: translateY(-2px);
 }
 
+.carrera-pasada {
+    opacity: 0.7;
+    background: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.carrera-pasada:hover {
+    transform: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
 .carrera-fecha {
     min-width: 70px;
     text-align: center;

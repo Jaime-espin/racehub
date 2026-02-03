@@ -83,7 +83,19 @@
                     <th>Estado</th>
                 </tr>`;
 
+            const hoy = new Date();
+            hoy.setHours(0,0,0,0);
+
             carreras.forEach(c => {
+                const fechaCarrera = new Date(c.fecha);
+                const esPasada = fechaCarrera < hoy;
+                
+                let estadoHtml = `<span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>`;
+                
+                if (esPasada) {
+                    estadoHtml = `<span class="badge cerrada">Finalizada</span>`;
+                }
+
                 html += `<tr>
                     <td>${c.fecha}</td>
                     <td>
@@ -92,7 +104,7 @@
                     </td>
                     <td>${c.deporte}</td>
                     <td>${c.localizacion}</td>
-                    <td><span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span></td>
+                    <td>${estadoHtml}</td>
                 </tr>`;
             });
             html += '</table>';
@@ -102,6 +114,9 @@
         function renderizarCalendario(carreras, listaDiv) {
             // Agrupar carreras por mes
             const carrerasPorMes = {};
+            const hoy = new Date();
+            hoy.setHours(0,0,0,0);
+
             carreras.forEach(c => {
                 const fecha = new Date(c.fecha);
                 const mesKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
@@ -125,8 +140,16 @@
                     const fecha = new Date(c.fecha);
                     const dia = fecha.getDate();
                     const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
+                    const esPasada = fecha < hoy;
+                    const clasePasada = esPasada ? 'carrera-pasada' : '';
                     
-                    html += `<div class="carrera-card">
+                    let estadoHtml = `<span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>`;
+                    
+                    if (esPasada) {
+                        estadoHtml = `<span class="badge cerrada">Finalizada</span>`;
+                    }
+                    
+                    html += `<div class="carrera-card ${clasePasada}">
                         <div class="carrera-fecha">
                             <div class="dia">${dia}</div>
                             <div class="dia-semana">${diaSemana}</div>
@@ -135,7 +158,7 @@
                             <h4>${c.nombre}</h4>
                             <p><strong>📍</strong> ${c.localizacion}</p>
                             <p><strong>🏃</strong> ${c.deporte} - ${c.distancia_resumen || ''}</p>
-                            <span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>
+                            ${estadoHtml}
                         </div>
                     </div>`;
                 });
