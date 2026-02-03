@@ -376,6 +376,40 @@
             }
         }
 
-        // Cargar al inicio
+        // --- Funciones de Compartir ---
+async function compartirCalendario() {
+    try {
+        const response = await fetch('/share/token');
+        const data = await response.json();
+        
+        // Construct absolute URL
+        const fullUrl = window.location.origin + data.share_url;
+        document.getElementById('shareUrlInput').value = fullUrl;
+        
+        document.getElementById('modalCompartir').style.display = 'flex';
+    } catch (e) {
+        console.error(e);
+        alert('Error al generar enlace de compartir');
+    }
+}
+
+function cerrarCompartir() {
+    document.getElementById('modalCompartir').style.display = 'none';
+}
+
+function copiarEnlace(event) {
+    const copyText = document.getElementById("shareUrlInput");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999); 
+    navigator.clipboard.writeText(copyText.value);
+    
+    // Feedback visual
+    const btn = event.target;
+    const originalText = btn.innerText;
+    btn.innerText = "¡Copiado!";
+    setTimeout(() => btn.innerText = originalText, 2000);
+}
+
+// Cargar al inicio
         cargarPerfil();
         cargarCarreras();

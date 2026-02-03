@@ -4,6 +4,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import shortuuid
 from src.database import SessionLocal, CarreraDB, UserDB, ResultadoDB
 from pydantic import BaseModel
 from datetime import date
@@ -199,7 +200,38 @@ def eliminar_carrera(carrera_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"mensaje": f"Carrera '{nombre}' eliminada correctamente"}
 
-@app.get("/compartir", response_class=HTMLResponse)
-async def ver_calendario_publico(request: Request):
-    # Esta ruta carga el HTML que NO tiene botones de edición
-    return templates.TemplateResponse("public.html", {"request": request})
+# --- Share Feature ---
+
+@app.get("/share/token")
+def get_share_token(db: Session = Depends(get_db)):
+    user = get_current_user(db)
+    if not user.share_token:
+        # Generate token using shortuuid
+        user.share_token = shortuuid.ShortUUID().random(length=10)
+        db.commit()
+        db.refresh(user)
+    
+    # Construct full URL (request.base_url could be used in real scenarios)
+    return {"share_token": user.share_token, "share_url": f"/share/{user.share_token}"}
+
+@app.get("/share/{share_token}", response_class=HTMLResponse)
+async def public_calendar_view(request: Request, share_token: str, db: Session = Depends(get_db)):
+    user = db.query(UserDB).filter(UserDB.share_token == share_token).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Calendario no encontrado")
+    
+    # We pass the token to the template so JS can use it to fetch data
+    return templates.TemplateResponse("public.html", {
+        "request": request, 
+        "share_token": share_token, 
+        "owner_name": user.nombre_completo
+    })
+
+@app.get("/api/share/{share_token}/carreras", response_model=List[CarreraOut])
+def list_public_carreras(share_token: str, db: Session = Depends(get_db)):
+    user = db.query(UserDB).filter(UserDB.share_token == share_token).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    carreras = db.query(CarreraDB).filter(CarreraDB.user_id == user.id).all()
+    return carreras

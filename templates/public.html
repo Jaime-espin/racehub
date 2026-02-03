@@ -25,6 +25,9 @@
     </div>
 
     <script>
+        const shareToken = "{{ share_token }}";
+        const ownerName = "{{ owner_name }}";
+
         let datosEncontrados = null;
         let vistaActual = 'tabla'; // 'tabla' o 'calendario'
         let carrerasCache = [];
@@ -37,7 +40,16 @@
         }
 
         async function cargarCarreras() {
-            const response = await fetch('/carreras');
+            let url = '/carreras';
+            if (shareToken && shareToken !== "None" && shareToken.trim() !== "") {
+                 url = `/api/share/${shareToken}/carreras`;
+                 // Update title if viewing someone else's calendar
+                 if (ownerName && ownerName !== "nulo" && ownerName !== "None") {
+                      document.querySelector('h1').innerText = `🏃‍♂️ Calendario de ${ownerName}`;
+                 }
+            }
+
+            const response = await fetch(url);
             const carreras = await response.json();
             carrerasCache = carreras;
             renderizarCarreras(carreras);

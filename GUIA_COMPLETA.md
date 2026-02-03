@@ -1517,6 +1517,34 @@ git push origin main
 
 ---
 
+## 9. Nuevas Funcionalidades: Sistema de Compartir
+
+Recientemente se ha añadido la capacidad de compartir tu calendario públicamente.
+
+### 9.1 ¿Cómo funciona?
+
+1.  Cada usuario tiene un **token único** (código secreto) asociado a su cuenta.
+2.  Al pulsar "Compartir", se genera una URL pública como: `/share/AbC123XyZ`.
+3.  Cualquier persona con ese enlace puede ver (pero no editar) tu calendario.
+
+### 9.2 Cambios Técnicos Realizados
+
+**Base de Datos:**
+- Se ha modificado la tabla `users` para añadir la columna `share_token`.
+- Se usa `shortuuid` para generar identificadores cortos y seguros.
+
+**API (api.py):**
+- `GET /share/token`: Genera o recupera el token del usuario actual.
+- `GET /share/{token}`: Carga el HTML público para el visitante.
+- `GET /api/share/{token}/carreras`: Devuelve los datos JSON de las carreras asociadas a ese token (sin necesidad de login).
+
+**Frontend:**
+- **index.html**: Añadido botón "Compartir" y ventana modal para copiar el enlace.
+- **public.html**: Nueva lógica JS para detectar el token en la URL y cambiar el título ("Calendario de Jaime").
+- **Seguridad**: Las vistas compartidas son de **solo lectura**. Los visitantes no ven botones de eliminar ni formularios de búsqueda.
+
+---
+
 ## 📝 Resumen Final
 
 ### Flujo de Ejecución Simplificado

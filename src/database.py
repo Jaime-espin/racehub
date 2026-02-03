@@ -25,6 +25,7 @@ class UserDB(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre_completo = Column(String, nullable=False)
     email = Column(String, unique=True, index=True)
+    share_token = Column(String, unique=True, index=True, nullable=True)
     
     # Relación: Un usuario tiene muchas carreras guardadas
     carreras = relationship("CarreraDB", back_populates="usuario")
