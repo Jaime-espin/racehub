@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Formato: postgresql://usuario:contraseña@localhost:5432/nombre_db
-DATABASE_URL = os.getenv("DATABASE_URL","postgresql://jaime:6999@localhost:5432/racehub")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://jaime:6999@localhost:5432/racehub")
 
 engine = create_engine(DATABASE_URL) #Es el motor que se encarga de conectar con la base de datos. Le indicamos el destino
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #Crea una fábrica de "sesiones". Una sesión es como una conversación con la base de datos: la abres, haces cambios y la cierras.

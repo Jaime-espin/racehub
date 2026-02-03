@@ -8,6 +8,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     nombre_completo VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
+    share_token VARCHAR(255) UNIQUE,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

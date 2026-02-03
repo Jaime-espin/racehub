@@ -2,6 +2,28 @@
         let vistaActual = 'tabla'; // 'tabla' o 'calendario'
         let carrerasCache = [];
 
+        console.log("Script loaded");
+
+        // Cerrar menú móvil al hacer click en cualquier botón del menú
+        document.addEventListener('DOMContentLoaded', () => {
+            const menuButtons = document.querySelectorAll('.menu .btn-nav');
+            const menuToggle = document.getElementById('menu-toggle');
+            
+            menuButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (window.innerWidth <= 768) {
+                        menuToggle.checked = false;
+                    }
+                });
+            });
+
+            // Ocultar botones de usuario hasta que se confirme login
+            document.querySelectorAll('.btn-perfil, .btn-share, .btn-logout').forEach(btn => btn.style.display = 'none');
+
+            // Cargar carreras al iniciar la página
+            cargarCarreras();
+        });
+
         function cambiarVista(vista) {
             vistaActual = vista;
             document.getElementById('btnTabla').classList.toggle('active', vista === 'tabla');
@@ -10,10 +32,67 @@
         }
 
         async function cargarCarreras() {
-            const response = await fetch('/carreras');
-            const carreras = await response.json();
-            carrerasCache = carreras;
-            renderizarCarreras(carreras);
+            try {
+                const response = await fetch('/carreras', { credentials: 'include' });
+                if (response.status === 401) {
+                    document.getElementById('modalLogin').style.display = 'flex';
+                    return;
+                }
+                const carreras = await response.json();
+                carrerasCache = carreras;
+                renderizarCarreras(carreras);
+                
+                // Mostrar botones de usuario ya que está logueado
+                document.querySelectorAll('.btn-perfil, .btn-share, .btn-logout').forEach(btn => btn.style.display = 'inline-block');
+                
+                // Ocultar botón de login
+                document.getElementById('btnLogin').style.display = 'none';
+                
+                // Cargar perfil tras cargar carreras (si login ok)
+                cargarPerfil();
+            } catch (error) {
+                console.error("Error al cargar:", error);
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            console.log("Login attempt with:", email);
+            if (!email || !email.includes('@')) {
+                document.getElementById('loginError').textContent = "Email inválido";
+                document.getElementById('loginError').style.display = 'block';
+                return;
+            }
+            
+            document.getElementById('loginError').style.display = 'none';
+            
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email}),
+                    credentials: 'include'
+                });
+                
+                if (res.ok) {
+                    document.getElementById('modalLogin').style.display = 'none';
+                    cargarCarreras();
+                } else {
+                    const error = await res.json();
+                    document.getElementById('loginError').textContent = "Error al entrar: " + (error.detail || "Desconocido");
+                    document.getElementById('loginError').style.display = 'block';
+                }
+            } catch (e) {
+                document.getElementById('loginError').textContent = "Error de conexión: " + e.message;
+                document.getElementById('loginError').style.display = 'block';
+            }
+        }
+
+        async function logout() {
+            await fetch('/auth/logout', {method: 'POST', credentials: 'include'});
+            // Ocultar botones de usuario
+            document.querySelectorAll('.btn-perfil, .btn-share, .btn-logout').forEach(btn => btn.style.display = 'none');
+            location.reload();
         }
 
         function renderizarCarreras(carreras) {
@@ -215,6 +294,7 @@
                 const response = await fetch('/carreras/confirmar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify(datosEncontrados)
                 });
 
@@ -245,7 +325,8 @@
 
             try {
                 const response = await fetch(`/carreras/${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
 
                 if (response.ok) {
@@ -265,7 +346,7 @@
 
         async function cargarPerfil() {
              try {
-                const res = await fetch('/perfil');
+                const res = await fetch('/perfil', { credentials: 'include' });
                 if (res.ok) {
                     usuarioActual = await res.json();
                 }
@@ -273,6 +354,10 @@
         }
 
         function abrirPerfil() {
+            if (!usuarioActual) {
+                alert("Debes iniciar sesión primero");
+                return;
+            }
             document.getElementById('perfilNombre').value = usuarioActual.nombre || "";
             document.getElementById('modalPerfil').style.display = 'flex';
         }
@@ -289,6 +374,7 @@
                 const res = await fetch('/perfil', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
+                    credentials: 'include',
                     body: JSON.stringify({ nombre_completo: nuevoNombre })
                 });
                 if(res.ok) {
@@ -339,6 +425,7 @@
                 const response = await fetch('/resultados/buscar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({
                         nombre_carrera: nombreCarrera,
                         anio: anio,
@@ -378,8 +465,12 @@
 
         // --- Funciones de Compartir ---
 async function compartirCalendario() {
+    if (!usuarioActual) {
+        alert("Debes iniciar sesión primero");
+        return;
+    }
     try {
-        const response = await fetch('/share/token');
+        const response = await fetch('/share/token', { credentials: 'include' });
         const data = await response.json();
         
         // Construct absolute URL
@@ -411,5 +502,5 @@ function copiarEnlace(event) {
 }
 
 // Cargar al inicio
-        cargarPerfil();
+        // cargarPerfil() se llama dentro de cargarCarreras si hay login
         cargarCarreras();

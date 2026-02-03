@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, validator
 from typing import List, Optional
 from dateutil import parser
 from sqlalchemy.orm import Session
-from src.database import SessionLocal, CarreraDB
+from src.database import SessionLocal, CarreraDB, ResultadoDB
 
 load_dotenv()
 
@@ -93,7 +93,7 @@ llm_estructurado_resultado = llm.with_structured_output(ResultadoSchema)
 #determinista que devuelve un objeto Python.
 
 # --- 2. FUNCIÓN DE GUARDADO ---
-def guardar_en_db(datos_ia: CarreraSchema, user_id: int):
+def guardar_en_db(datos_ia: CarreraSchema, user_id: int = 1):
     db: Session = SessionLocal()
     try:
         fecha_objeto = parser.parse(datos_ia.fecha).date()
@@ -177,7 +177,7 @@ def buscar_y_extraer_datos(nombre_a_buscar: str, max_results: int = 6):
         raise
 
 # --- 4. FUNCIÓN PARA EJECUCIÓN INTERACTIVA (CLI) ---
-def ejecutar_proyecto(nombre_a_buscar):
+def ejecutar_proyecto(nombre_a_buscar, user_id: int = 1):
     """
     Versión interactiva con confirmación humana para uso desde terminal.
     """
@@ -199,12 +199,13 @@ def ejecutar_proyecto(nombre_a_buscar):
     confirmacion = input("\n¿Los datos son correctos? (s/n): ").lower()
 
     if confirmacion == 's':
-        guardar_en_db(datos_extraidos)
+        user_id = int(input("ID de usuario (1 para demo): ") or 1)
+        guardar_en_db(datos_extraidos, user_id)
     else:
         print("❌ Operación cancelada por el usuario. Los datos no se han guardado.")
 
 # --- 5. FUNCIÓN PARA API WEB (sin interacción humana) ---
-def procesar_carrera_desde_web(nombre_a_buscar: str):
+def procesar_carrera_desde_web(nombre_a_buscar: str, user_id: int = 1):
     """
     Función para la API web: Busca, extrae y guarda automáticamente.
     Sin preguntas de consola.
@@ -213,7 +214,7 @@ def procesar_carrera_desde_web(nombre_a_buscar: str):
     
     try:
         datos_extraidos = buscar_y_extraer_datos(nombre_a_buscar, max_results=5)
-        guardar_en_db(datos_extraidos)
+        guardar_en_db(datos_extraidos, user_id)
         return datos_extraidos
     except Exception as e:
         print(f"❌ Error al procesar carrera desde web: {e}")
@@ -331,5 +332,5 @@ def guardar_resultado_db(datos_ia: ResultadoSchema, nombre_carrera: str, año: i
 
 if __name__ == "__main__":
     carrera = input("Carrera a añadir: ")
-    usuario = input("Añadir usuario: ")
-    ejecutar_proyecto(carrera)
+    user_id = int(input("ID de usuario (1 para demo): ") or 1)
+    ejecutar_proyecto(carrera, user_id)

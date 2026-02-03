@@ -87,10 +87,11 @@ racehub/
 
 ### ¿Qué es PostgreSQL?
 
-Es como una hoja de Excel gigante que vive en tu ordenador, pero mucho más potente:
-- Guarda información de forma estructurada (en tablas)
-- Es rápida para buscar datos
-- Garantiza que no se pierda información
+Es como una hoja de Excel gigante, pero mucho más potente. En esta versión de RaceHub, **hemos migrado a la nube usando Neon Tech**, un proveedor de "Servidor Virtual de PostgreSQL".
+
+**Ventajas de la Base de Datos en la Nube:**
+- **Persistencia:** Si despliegas la web o reiniciais el servidor, los datos NO se borran.
+- **Sincronización:** Puedes añadir carreras desde tu móvil y verlas en tu PC. Todos los dispositivos leen la misma "hoja de Excel" en internet.
 
 ### Esquema Relacional de Tablas
 
@@ -606,15 +607,21 @@ def listar_carreras(db: Session = Depends(get_db)):
 
 #### Autenticación y Endpoints (Rutas)
 
-**0. Simulación de Usuario (¡NUEVO!)**
+**0. Autenticación por Cookies (¡NUEVO!)**
 
-El proyecto ahora es multi-usuario (en teoría). Para simplificar el desarrollo, simulamos el login:
+El proyecto ahora tiene login real.
+
+- **Login Simplificado:** El usuario introduce su email.
+- **Registro Automático:** Si el email no existe, se crea una cuenta nueva al instante.
+- **Cookie:** El servidor envía una "cookie" (una credencial invisible) al navegador. En futuras peticiones, el navegador envía esa cookie automáticamente para decir "Soy Jaime".
 
 ```python
-def get_current_user():
-    # TEMPORAL: Siempre devuelve el Usuario con ID 1
-    # En el futuro, esto leería un token o cookie segura
-    return 1
+@app.post("/auth/login")
+def login(datos: UsuarioLogin, response: Response, db: Session = Depends(get_db)):
+    # 1. Busca o crea usuario
+    # 2. Guarda el email en una cookie segura
+    response.set_cookie(key="user_email", value=user.email)
+    return {"mensaje": "Login exitoso"}
 ```
 
 **1. Página principal**
@@ -1529,19 +1536,32 @@ Recientemente se ha añadido la capacidad de compartir tu calendario públicamen
 
 ### 9.2 Cambios Técnicos Realizados
 
-**Base de Datos:**
-- Se ha modificado la tabla `users` para añadir la columna `share_token`.
-- Se usa `shortuuid` para generar identificadores cortos y seguros.
-
-**API (api.py):**
-- `GET /share/token`: Genera o recupera el token del usuario actual.
-- `GET /share/{token}`: Carga el HTML público para el visitante.
-- `GET /api/share/{token}/carreras`: Devuelve los datos JSON de las carreras asociadas a ese token (sin necesidad de login).
-
 **Frontend:**
 - **index.html**: Añadido botón "Compartir" y ventana modal para copiar el enlace.
+- **Login Modal**: Si el servidor devuelve error 401 (No autorizado), aparece una ventana pidiendo el Email.
 - **public.html**: Nueva lógica JS para detectar el token en la URL y cambiar el título ("Calendario de Jaime").
 - **Seguridad**: Las vistas compartidas son de **solo lectura**. Los visitantes no ven botones de eliminar ni formularios de búsqueda.
+
+---
+
+## 10. Arquitectura Multi-Usuario y Persistencia
+
+Se han realizado cambios profundos para convertir la app de un proyecto local a un servicio web real.
+
+### 10.1 Login sin Contraseñas
+
+Para facilitar el uso, hemos implementado un sistema "Passwordless" basado en email.
+1. El usuario introduce su email.
+2. Si es nuevo, se crea la cuenta.
+3. Se guarda una cookie de sesión en el navegador.
+
+### 10.2 Base de Datos Global (Neon Tech)
+
+Se ha sustituido la base de datos local por **Neon Tech**.
+- Antes: `localhost` (los datos vivían en tu PC).
+- Ahora: `postgresql://NEON_URL...` (los datos viven en la AWS Cloud).
+
+Esto permite que, al hacer **Deploy en Render/Heroku**, la aplicación siga teniendo acceso a todas tus carreras guardadas.
 
 ---
 
