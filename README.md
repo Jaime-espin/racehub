@@ -98,13 +98,10 @@ Para ver los datos, creamos una API con **FastAPI**:
 
 ---
 
-## 📝 Mejoras Recientes
+## 📝 Roadmap
 
-- ✅ Refactorización de código duplicado
-- ✅ Validación de variables de entorno
-- ✅ Mejora en el manejo de errores
-- ✅ Validaciones en el schema de datos
-- ✅ .gitignore completo
-- ✅ Documentación de configuración (.env.example)
-
-Ver [MEJORAS.md](MEJORAS.md) para más detalles.
+- ✅ Calendario para visalizar las carreras a las que estás inscrito. Con buscador (IA scrapper) de carreras.
+- ✅ Capacidad de compartir el calendario. (Base de datos en la nube)
+- ✅ Obtención de clasificación y tiempo de la pruba del usuario (IA scrapper)
+- Interfaz más completa.
+- Whislist de carreras. Con avisos de apertura de inscripciones.
