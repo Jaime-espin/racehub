@@ -12,72 +12,281 @@
             <div class="brand-section">
                 <input type="checkbox" id="menu-toggle">
                 <label for="menu-toggle" class="menu-icon">&#9776;</label>
-                <h1 style="margin: 0;">🏃‍♂️ RaceHub</h1>
+                <h1 style="margin: 0;">RaceHub</h1>
                 <nav class="menu">
-                    <button onclick="abrirPerfil()" class="btn-nav btn-perfil">⚙️ Mi Perfil</button>
-                    <button onclick="compartirCalendario()" class="btn-nav btn-share">🔗 Compartir</button>
-                    <button onclick="logout()" class="btn-nav btn-logout">🚪 Salir</button>
+                    <button onclick="abrirPerfil()" class="btn-nav btn-perfil" title="Mi Perfil">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#007AFF;">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        Mi Perfil
+                    </button>
+                    <button onclick="compartirCalendario()" class="btn-nav btn-share" title="Compartir">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#007AFF;">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                        Compartir
+                    </button>
+                    <button onclick="logout()" class="btn-nav btn-logout" title="Salir">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#dc2626;">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                            <polyline points="16 17 21 12 16 7"></polyline>
+                            <line x1="21" y1="12" x2="9" y2="12"></line>
+                        </svg>
+                        Salir
+                    </button>
                 </nav>
             </div>
             <div class="toggle-container">
-                <button id="btnTabla" class="toggle-btn active" onclick="cambiarVista('tabla')">📋 Tabla</button>
-                <button id="btnCalendario" class="toggle-btn" onclick="cambiarVista('calendario')">📅 Calendario</button>
+                <button id="btnTabla" class="toggle-btn active" onclick="cambiarVista('tabla')" title="Vista de Tabla">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                    Tabla
+                </button>
+                <button id="btnCalendario" class="toggle-btn" onclick="cambiarVista('calendario')" title="Vista de Calendario">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                        <line x1="16" y1="2" x2="16" y2="6"></line>
+                        <line x1="8" y1="2" x2="8" y2="6"></line>
+                        <line x1="3" y1="10" x2="21" y2="10"></line>
+                    </svg>
+                    Calendario
+                </button>
             </div>
         </div>
         
         <!-- Modal Perfil -->
         <div id="modalPerfil" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-             <div style="background:white; padding:30px; border-radius:10px; width:400px; max-width:90%;">
-                <h2 style="margin-top:0;">Mi Perfil de Corredor</h2>
-                <p>Configura tu nombre para que RaceHub encuentre tus resultados automáticamente.</p>
+             <div style="background:#FFFFFF; padding:30px; border-radius:10px; width:400px; max-width:90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top:0; color:#1e293b;">Mi Perfil de Corredor</h2>
+                <p style="color:#475569;">Configura tu nombre para que RaceHub encuentre tus resultados automáticamente.</p>
                 
                 <div style="margin-bottom:15px;">
-                    <label style="display:block; margin-bottom:5px; font-weight:bold;">Nombre Completo (para clasificaciones):</label>
-                    <input type="text" id="perfilNombre" placeholder="Ej: Jaime Espín Rodríguez" style="width:100%; padding:8px; box-sizing:border-box;">
+                    <label style="display:block; margin-bottom:5px; font-weight:bold; color:#1e293b;">Nombre Completo (para clasificaciones):</label>
+                    <input type="text" id="perfilNombre" placeholder="Ej: Jaime Espín Rodríguez" style="width:100%; padding:10px; box-sizing:border-box; border:1px solid #cbd5e1; border-radius:6px; color:#1e293b; background:#FFFFFF; font-size:14px;">
                 </div>
                 
                 <div style="display:flex; justify-content:flex-end; gap:10px;">
-                    <button onclick="cerrarPerfil()" style="background:#95a5a6;">Cancelar</button>
-                    <button onclick="guardarPerfil()" style="background:#27ae60;">Guardar</button>
+                    <button onclick="cerrarPerfil()" style="background:#f1f5f9; color:#1e293b; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:500;">Cancelar</button>
+                    <button onclick="guardarPerfil()" style="background:#007AFF; color:white; border:none; padding:10px 20px; border-radius:6px; cursor:pointer; font-weight:500;">Guardar</button>
                 </div>
              </div>
         </div>
 
         <!-- Modal Compartir -->
         <div id="modalCompartir" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-             <div style="background:white; padding:30px; border-radius:10px; width:500px; max-width:90%;">
-                <h2 style="margin-top:0;">🔗 Compartir Calendario</h2>
-                <p>Copia este enlace para compartir tu calendario con amigos:</p>
+             <div style="background:#FFFFFF; padding:30px; border-radius:10px; width:500px; max-width:90%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top:0; color:#1e293b;">Compartir Calendario</h2>
+                <p style="color:#475569;">Copia este enlace para compartir tu calendario con amigos:</p>
                 
                 <div style="display:flex; gap:10px; margin-bottom:20px;">
-                    <input type="text" id="shareUrlInput" readonly style="width:100%; padding:10px; border:1px solid #ddd; background:#f9f9f9; border-radius: 4px;">
-                    <button onclick="copiarEnlace(event)" style="background:#34495e; color:white; border:none; padding:0 20px; cursor:pointer; border-radius: 4px;">Copiar</button>
+                    <input type="text" id="shareUrlInput" readonly style="width:100%; padding:10px; border:1px solid #cbd5e1; background:#f8fafc; border-radius: 4px; color:#1e293b;">
+                    <button onclick="copiarEnlace(event)" style="background:#007AFF; color:white; border:none; padding:10px 20px; cursor:pointer; border-radius: 4px; font-weight:500;">Copiar</button>
                 </div>
                 
                 <div style="display:flex; justify-content:flex-end;">
-                    <button onclick="cerrarCompartir()" style="background:#95a5a6; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">Cerrar</button>
+                    <button onclick="cerrarCompartir()" style="background:#f1f5f9; color:#1e293b; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:500;">Cerrar</button>
                 </div>
              </div>
         </div>
 
         <!-- Modal Login -->
         <div id="modalLogin" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:2000; align-items:center; justify-content:center;">
-             <div style="background:white; padding:40px; border-radius:10px; width:400px; max-width:90%; text-align:center;">
-                <h2 style="margin-top:0;">👋 Bienvenido a RaceHub</h2>
-                <p>Ingresa tu email para guardar tus carreras en la nube y acceder desde cualquier dispositivo.</p>
+             <div style="background:#FFFFFF; padding:40px; border-radius:10px; width:400px; max-width:90%; text-align:center; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top:0; color:#1e293b;">Bienvenido a RaceHub</h2>
+                <p style="color:#475569;">Ingresa tu email para guardar tus carreras en la nube y acceder desde cualquier dispositivo.</p>
                 
-                <input type="email" id="loginEmail" placeholder="tu-email@ejemplo.com" style="width:100%; padding:12px; margin: 20px 0; border:2px solid #ddd; border-radius: 6px; font-size:16px;">
+                <input type="email" id="loginEmail" placeholder="tu-email@ejemplo.com" style="width:100%; padding:12px; margin: 20px 0; border:1px solid #cbd5e1; border-radius: 6px; font-size:16px; background:#FFFFFF; color:#1e293b; box-sizing:border-box;">
                 
-                <button onclick="login()" style="background:#3498db; color:white; border:none; padding:12px 30px; font-size:16px; border-radius: 6px; cursor:pointer; width:100%;">🚀 Entrar / Registrarse</button>
-                <p id="loginError" style="color:red; margin-top:10px; display:none;"></p>
+                <button onclick="login()" style="background:#007AFF; color:white; border:none; padding:12px 30px; font-size:16px; border-radius: 6px; cursor:pointer; width:100%; font-weight:bold;">Entrar / Registrarse</button>
+                <p id="loginError" style="color:#dc2626; margin-top:10px; display:none;"></p>
              </div>
         </div>
 
-        <button id="btnLogin" onclick="document.getElementById('modalLogin').style.display='flex'" style="background:#3498db; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; margin-bottom:20px;">👋 Iniciar Sesión</button>
+        <!-- Modal Confirmación de Nombre Corredor -->
+        <div id="modalNombreCorredor" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1500; align-items:center; justify-content:center;">
+             <div style="background:#FFFFFF; padding:30px; border-radius:10px; width:450px; max-width:95%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top:0; color:#1e293b;">Confirmación de Corredor</h2>
+                <p style="color:#475569;">¿Buscar resultado para este corredor?</p>
+                
+                <div style="background:#f0f8ff; padding:15px; border-radius:6px; margin:20px 0; border-left:4px solid #007AFF;">
+                    <p style="margin:0; font-weight:bold; color:#007AFF;" id="nombreCorredorConfirm">-</p>
+                </div>
+                
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button onclick="cerrarModalNombreCorredor()" style="background:#f1f5f9; color:#1e293b; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Cambiar</button>
+                    <button onclick="confirmarNombreCorredor()" style="background:#007AFF; color:white; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Sí, buscar</button>
+                </div>
+             </div>
+        </div>
+
+        <!-- Modal Opciones de Búsqueda -->
+        <div id="modalOpcionesBusqueda" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1500; align-items:center; justify-content:center;">
+             <div style="background:#FFFFFF; padding:30px; border-radius:10px; width:500px; max-width:95%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top:0; color:#1e293b;">¿Cómo buscar el resultado?</h2>
+                <p style="color:#475569; margin-bottom:20px;">Elige el método que mejor se adapte a ti:</p>
+                
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                    <!-- Opción 1: Búsqueda Automática -->
+                    <button onclick="iniciarBusquedaAutomatica()" style="
+                        background:#FFFFFF; border:2px solid #007AFF; color:#1e293b;
+                        padding:15px; border-radius:8px; cursor:pointer; 
+                        font-size:16px; font-weight:bold; text-align:left;
+                        transition: all 0.3s; display:flex; align-items:center; gap:15px;
+                    " onmouseover="this.style.background='#f0f8ff'" onmouseout="this.style.background='#FFFFFF'">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#007AFF; flex-shrink:0;">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <div>
+                            <div style="font-weight:bold; color:#007AFF;">Búsqueda Automática</div>
+                            <div style="font-size:12px; color:#64748b;">Buscamos en internet (10-15s)</div>
+                        </div>
+                    </button>
+
+                    <!-- Opción 2: URL Directo -->
+                    <button onclick="solicitarURL()" style="
+                        background:#FFFFFF; border:2px solid #007AFF; color:#1e293b;
+                        padding:15px; border-radius:8px; cursor:pointer;
+                        font-size:16px; font-weight:bold; text-align:left;
+                        transition: all 0.3s; display:flex; align-items:center; gap:15px;
+                    " onmouseover="this.style.background='#f0f8ff'" onmouseout="this.style.background='#FFFFFF'">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#007AFF; flex-shrink:0;">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                        <div>
+                            <div style="font-weight:bold; color:#007AFF;">URL Directo</div>
+                            <div style="font-size:12px; color:#64748b;">Pega el enlace a la tabla</div>
+                        </div>
+                    </button>
+
+                    <!-- Opción 3: Subir PDF -->
+                    <button onclick="mostrarModalSubidaArchivo()" style="
+                        background:#FFFFFF; border:2px solid #007AFF; color:#1e293b;
+                        padding:15px; border-radius:8px; cursor:pointer;
+                        font-size:16px; font-weight:bold; text-align:left;
+                        transition: all 0.3s; display:flex; align-items:center; gap:15px;
+                    " onmouseover="this.style.background='#f0f8ff'" onmouseout="this.style.background='#FFFFFF'">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#007AFF; flex-shrink:0;">
+                            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                            <polyline points="13 2 13 9 20 9"></polyline>
+                        </svg>
+                        <div>
+                            <div style="font-weight:bold; color:#007AFF;">Subir PDF/CSV</div>
+                            <div style="font-size:12px; color:#64748b;">Precisión 99% (5-10s)</div>
+                        </div>
+                    </button>
+
+                    <!-- Opción 4: Ingresar Manualmente -->
+                    <button onclick="abrirModalIngresoManual()" style="
+                        background:#FFFFFF; border:2px solid #007AFF; color:#1e293b;
+                        padding:15px; border-radius:8px; cursor:pointer;
+                        font-size:16px; font-weight:bold; text-align:left;
+                        transition: all 0.3s; display:flex; align-items:center; gap:15px;
+                    " onmouseover="this.style.background='#f0f8ff'" onmouseout="this.style.background='#FFFFFF'">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:#007AFF; flex-shrink:0;">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        <div>
+                            <div style="font-weight:bold; color:#007AFF;">Ingresar Manualmente</div>
+                            <div style="font-size:12px; color:#64748b;">Completa los datos directamente</div>
+                        </div>
+                    </button>
+                </div>
+
+                <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+                    <button onclick="cerrarModalOpcionesBusqueda()" style="background:#f1f5f9; color:#1e293b; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Cerrar</button>
+                </div>
+             </div>
+        </div>
+
+        <!-- Modal para Ingresar URL -->
+        <div id="modalURL" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1500; align-items:center; justify-content:center;">
+             <div style="background:#FFFFFF; padding:30px; border-radius:10px; width:500px; max-width:95%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top:0; color:#1e293b;">Pega la URL de la tabla de resultados</h2>
+                <p style="color:#475569; margin-bottom:15px;">Copia el enlace directo a los resultados (no la página principal):</p>
+                
+                <input type="url" id="inputURL" placeholder="https://ejemplo.com/resultados-carrera" 
+                       style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; box-sizing:border-box; margin-bottom:20px; background:#FFFFFF; color:#1e293b;">
+                
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button onclick="cerrarModalURL()" style="background:#f1f5f9; color:#1e293b; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Cancelar</button>
+                    <button onclick="procesarURL()" style="background:#007AFF; color:white; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Buscar</button>
+                </div>
+             </div>
+        </div>
+
+        <!-- Modal Resultado de Búsqueda -->
+        <div id="modalResultado" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1500; align-items:center; justify-content:center;">
+             <div style="background:#FFFFFF; padding:30px; border-radius:10px; width:500px; max-width:95%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <div id="modalResultadoContenido" style="color:#1e293b;">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                <div style="margin-top:20px; display:flex; justify-content:flex-end;">
+                    <button onclick="cerrarModalResultado()" style="background:#007AFF; color:white; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Cerrar</button>
+                </div>
+             </div>
+        </div>
+
+        <!-- Espacio para desplegables de carreras -->
+        <div id="resultado-desplegable" style="margin-top:20px; display:none; background:#f0f8ff; border-left:4px solid #007AFF; padding:15px; border-radius:6px;">
+            <div style="color:#1e293b; font-weight:bold;">Resultado Guardado:</div>
+            <div id="resultado-detalles" style="margin-top:10px; font-size:14px; color:#475569;"></div>
+        </div>
+
+        <div id="modalIngresoManual" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1500; align-items:center; justify-content:center;">
+             <div style="background:#FFFFFF; padding:30px; border-radius:10px; width:500px; max-width:95%; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
+                <h2 style="margin-top:0; color:#1e293b;">Ingresar Resultado Manualmente</h2>
+                <p style="color:#475569; margin-bottom:20px;">Completa los datos de tu clasificación:</p>
+                
+                <div style="display:flex; flex-direction:column; gap:15px;">
+                    <div>
+                        <label style="display:block; font-weight:bold; margin-bottom:5px; color:#1e293b;">Tiempo Oficial (HH:MM:SS)</label>
+                        <input type="text" id="inputTiempo" placeholder="01:45:30" 
+                               style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; box-sizing:border-box; background:#FFFFFF; color:#1e293b;">
+                    </div>
+
+                    <div>
+                        <label style="display:block; font-weight:bold; margin-bottom:5px; color:#1e293b;">Posición General</label>
+                        <input type="number" id="inputPosicion" placeholder="123" 
+                               style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; box-sizing:border-box; background:#FFFFFF; color:#1e293b;">
+                    </div>
+
+                    <div>
+                        <label style="display:block; font-weight:bold; margin-bottom:5px; color:#1e293b;">Posición en Categoría (opcional)</label>
+                        <input type="number" id="inputPosicionCat" placeholder="45" 
+                               style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; box-sizing:border-box; background:#FFFFFF; color:#1e293b;">
+                    </div>
+
+                    <div>
+                        <label style="display:block; font-weight:bold; margin-bottom:5px; color:#1e293b;">Ritmo Medio (opcional, ej: 4:30)</label>
+                        <input type="text" id="inputRitmo" placeholder="4:30 min/km" 
+                               style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:6px; font-size:14px; box-sizing:border-box; background:#FFFFFF; color:#1e293b;">
+                    </div>
+                </div>
+
+                <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                    <button onclick="cerrarModalIngresoManual()" style="background:#f1f5f9; color:#1e293b; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Cancelar</button>
+                    <button onclick="guardarClasificacionManual()" style="background:#007AFF; color:white; padding:10px 20px; border-radius:6px; border:none; cursor:pointer; font-weight:500;">Guardar</button>
+                </div>
+             </div>
+        </div>
+
+
+        <button id="btnLogin" onclick="document.getElementById('modalLogin').style.display='flex'" style="background:#007AFF; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; margin-bottom:20px; font-weight:500;">Iniciar Sesión</button>
 
         <div class="search-box">
             <input type="text" id="nombreInput" placeholder="Ej: Maratón de Nueva York 2025...">
-            <button onclick="buscarCarrera()" id="btnBuscar">✨ Añadir</button>
+            <button onclick="buscarCarrera()" id="btnBuscar">Añadir</button>
         </div>
         <div id="loading">
             <div class="spinner"></div> Analizando webs oficiales, espera unos segundos...

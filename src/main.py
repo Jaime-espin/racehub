@@ -58,8 +58,8 @@ class CarreraSchema(BaseModel):
             # Validar que sea parseable como fecha
             parser.parse(v)
             return v
-        except:
-            raise ValueError("La fecha debe estar en formato válido (preferentemente YYYY-MM-DD)")
+        except (ValueError, TypeError) as e:
+            raise ValueError("La fecha debe estar en formato válido (preferentemente YYYY-MM-DD)") from e
     
     @validator('deporte')
     def validar_deporte(cls, v):
@@ -74,6 +74,7 @@ class ResultadoSchema(BaseModel):
     posicion_general: Optional[int] = Field(None, description="Posición numérica absoluta. Null si no hay datos.")
     posicion_categoria: Optional[int] = Field(None, description="Posición en su categoría. Null si no hay datos.")
     ritmo_medio: Optional[str] = Field(None, description="Ritmo medio (ej: '4:30 min/km'). Null si no hay datos.")
+    confianza: Optional[float] = Field(0.5, description="Nivel de confianza (0.0-1.0). 0.9 = alta confianza regex, 0.65 = baja confianza LLM")
 
 #---Motores---
 tavily = TavilyClient(api_key=TAVILY_API_KEY)
@@ -113,13 +114,17 @@ def guardar_en_db(datos_ia: CarreraSchema, user_id: int = 1):
         db.commit() 
         print(f"✅ Guardada: {datos_ia.nombre_oficial} (User {user_id})")
     
-    except Exception as e:
-        #Si intentas insertar una carrera duplicada (misma fecha y nombre), la base de datos lanzará un error.
+    except ValueError as e:
+        # Carrera duplicada o error de validación
         db.rollback()
         if "unique_violation" in str(e).lower() or "duplicate key" in str(e).lower():
             print(f"⚠️ Aviso: La carrera '{datos_ia.nombre_oficial}' ya existe para esa fecha.")
         else:
-            print(f"❌ Error al guardar: {e}")
+            print(f"❌ Error de validación: {e}")
+    except Exception as e:
+        # Error no esperado durante guardado en BD
+        db.rollback()
+        print(f"❌ Error al guardar: {e}")
     finally:
         db.close()
 
@@ -167,11 +172,14 @@ def buscar_y_extraer_datos(nombre_a_buscar: str, max_results: int = 6):
     try:
         datos_extraidos = llm_estructurado_carreras.invoke(prompt)
         return datos_extraidos
+    except ValueError as e:
+        # Re-raise validation errors from Pydantic
+        raise
     except Exception as e:
         error_str = str(e)
-        if "429" in error_str or "Rate limit" in error_str:
-            print(f"⏳ Límite de cuota excedido (Groq 429). Intentando reintentar o abortar.")
-            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Por favor espera unos minutos antes de intentar de nuevo.")
+        if "429" in error_str or "rate limit" in error_str.lower():
+            print(f"⏳ Límite de cuota excedido (Groq 429). Reintentar en unos minutos.")
+            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Por favor espera unos minutos antes de intentar de nuevo.") from e
         
         print(f"❌ Error al procesar con el LLM: {e}")
         raise
@@ -280,11 +288,14 @@ def buscar_resultado_usuario(nombre_carrera: str, año: int, nombre: str):
     try:
         datos_extraidos = llm_estructurado_resultado.invoke(prompt)
         return datos_extraidos
+    except ValueError as e:
+        # Re-raise validation errors from Pydantic
+        raise
     except Exception as e:
         error_str = str(e)
-        if "429" in error_str or "Rate limit" in error_str:
-            print(f"⏳ Límite de cuota excedido (Groq 429).")
-            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Intenta más tarde.")
+        if "429" in error_str or "rate limit" in error_str.lower():
+            print(f"⏳ Límite de cuota excedido (Groq 429). Reintentar en unos minutos.")
+            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Intenta más tarde.") from e
         print(f"❌ Error al procesar con el LLM: {e}")
         raise
 
@@ -312,20 +323,25 @@ def guardar_resultado_db(datos_ia: ResultadoSchema, nombre_carrera: str, año: i
             return
 
         # 2. Creamos el registro del resultado
-        cat_info = f"Pos. Cat: {datos_ia.posicion_categoria}" if datos_ia.posicion_categoria else ""
         nuevo_resultado = ResultadoDB(
             carrera_id=carrera_existente.id,
             tiempo_oficial=datos_ia.tiempo_oficial or "No encontrado",
             posicion_general=datos_ia.posicion_general,
+            posicion_categoria=datos_ia.posicion_categoria,
             ritmo_medio=datos_ia.ritmo_medio,
-            comentarios=f"Auto {año}. {cat_info}"
+            confianza=int(datos_ia.confianza * 100) if datos_ia.confianza else None,
+            comentarios=f"Auto {año}"
         )
 
         db.add(nuevo_resultado)
         db.commit()
         print(f"✅ Resultado guardado para: {nombre_carrera}")
 
+    except ValueError as e:
+        # Carrera no encontrada
+        print(f"⚠️ Aviso al guardar resultado: {e}")
     except Exception as e:
+        # Otros errores de BD o inesperados
         print(f"❌ Error al guardar resultado: {e}")
     finally:
         db.close()

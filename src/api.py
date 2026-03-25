@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Request, HTTPException, Response
+from fastapi import FastAPI, Depends, Request, HTTPException, Response, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -9,7 +9,10 @@ from src.database import SessionLocal, CarreraDB, UserDB, ResultadoDB
 from pydantic import BaseModel
 from datetime import date
 from src.main import buscar_y_extraer_datos, guardar_en_db, CarreraSchema, buscar_resultado_usuario, guardar_resultado_db
+from src.busqueda_realista import buscar_resultado_realista, buscar_en_archivo_local, generar_instrucciones_usuario
 from pathlib import Path
+import tempfile
+import os
 
 # --- Dependencia de Base de Datos ---
 def get_db():
@@ -42,6 +45,19 @@ class SolicitudResultado(BaseModel):
     nombre_carrera: str
     anio: int
     nombre_corredor: Optional[str] = None
+    url_oficial: Optional[str] = None
+
+class ResultadoOut(BaseModel):
+    id: int
+    tiempo_oficial: Optional[str] = None
+    posicion_general: Optional[int] = None
+    ritmo_medio: Optional[str] = None
+    comentarios: Optional[str] = None
+    confianza: Optional[int] = None
+    posicion_categoria: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 class CarreraOut(BaseModel):
     id: int
@@ -52,6 +68,7 @@ class CarreraOut(BaseModel):
     distancia_resumen: Optional[str]
     url_oficial: Optional[str]
     estado_inscripcion: Optional[str]
+    resultados: List[ResultadoOut] = []
 
     class Config:
         from_attributes = True
@@ -150,14 +167,25 @@ def buscar_resultado(solicitud: SolicitudResultado, user: UserDB = Depends(get_c
         if not nombre_busqueda:
             nombre_busqueda = user.nombre_completo
 
-        datos_resultado = buscar_resultado_usuario(solicitud.nombre_carrera, solicitud.anio, nombre_busqueda)
+        # VERSIÓN REALISTA: Con validación y detección de portales
+        datos_resultado = buscar_resultado_realista(
+            solicitud.nombre_carrera, 
+            solicitud.anio, 
+            nombre_busqueda,
+            url_oficial=solicitud.url_oficial
+        )
+        
+        # Guardar resultado aunque sea parcial
         guardar_resultado_db(datos_resultado, solicitud.nombre_carrera, solicitud.anio, user_id=user.id)
         
         if not datos_resultado.tiempo_oficial:
-             return {
+            instrucciones = generar_instrucciones_usuario(solicitud.nombre_carrera, solicitud.url_oficial)
+            return {
                 "encontrado": False,
-                "mensaje": "No se encontraron tiempos exactos en las webs públicas.",
-                "corredor": nombre_busqueda
+                "mensaje": "No se encontraron datos exactos. Intenta estas opciones:",
+                "instrucciones": instrucciones,
+                "corredor": nombre_busqueda,
+                "confianza": 0.0
             }
 
         return {
@@ -167,10 +195,65 @@ def buscar_resultado(solicitud: SolicitudResultado, user: UserDB = Depends(get_c
             "tiempo": datos_resultado.tiempo_oficial,
             "posicion": datos_resultado.posicion_general,
             "posicion_categoria": datos_resultado.posicion_categoria,
-            "ritmo": datos_resultado.ritmo_medio
+            "ritmo": datos_resultado.ritmo_medio,
+            "confianza": datos_resultado.confianza or 0.7
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/resultados/buscar-archivo")
+async def buscar_resultado_archivo(
+    file: UploadFile = File(...),
+    nombre_corredor: str = "",
+    anio: int = 2024,
+    user: UserDB = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint para subir PDF/CSV con resultados
+    Sistema extraerá datos directamente del archivo
+    """
+    if not nombre_corredor:
+        nombre_corredor = user.nombre_completo
+    
+    try:
+        # Guardar archivo temporal
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+            content = await file.read()
+            tmp.write(content)
+            tmp_path = tmp.name
+        
+        # Procesar archivo
+        datos_resultado = buscar_en_archivo_local(
+            tmp_path,
+            nombre_corredor,
+            anio  # Usar año dinámico
+        )
+        
+        # Limpiar archivo temporal
+        os.remove(tmp_path)
+        
+        if not datos_resultado.tiempo_oficial:
+            return {
+                "encontrado": False,
+                "mensaje": f"No se encontró a '{nombre_corredor}' en el archivo",
+                "confianza": 0.0
+            }
+        
+        return {
+            "encontrado": True,
+            "mensaje": f"¡Encontrado en {file.filename}!",
+            "corredor": nombre_corredor,
+            "tiempo": datos_resultado.tiempo_oficial,
+            "posicion": datos_resultado.posicion_general,
+            "posicion_categoria": datos_resultado.posicion_categoria,
+            "ritmo": datos_resultado.ritmo_medio,
+            "confianza": datos_resultado.confianza or 0.95
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error procesando archivo: {str(e)}")
 
 # --- Listado y Gestión de Carreras ---
 @app.get("/", response_class=HTMLResponse)

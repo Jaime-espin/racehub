@@ -1,0 +1,160 @@
+/* 
+ * RaceHub Color System - CSS Custom Properties (Variables)
+ * This file defines all color values used throughout the application
+ * for easy maintenance and consistency
+ */
+
+:root {
+  /* ========================================
+     PRIMARY COLORS - Brand & Interactive
+     ======================================== */
+  --color-primary: #007AFF;           /* Electric Blue - Primary brand color */
+  --color-primary-hover: #0063d6;    /* Darker shade for hover states */
+  --color-primary-light: #f0f8ff;    /* Light blue tint for backgrounds */
+  
+  /* ========================================
+     BACKGROUND COLORS
+     ======================================== */
+  --color-bg-page: #F8FAFC;          /* Ultra light gray - Page background */
+  --color-bg-container: #FFFFFF;     /* Pure white - Cards, modals, containers */
+  --color-bg-secondary: #f8fafc;     /* Slightly darker white for alternate sections */
+  
+  /* ========================================
+     NEUTRAL GRAY PALETTE (Text & Borders)
+     ======================================== */
+  --color-text-dark-900: #1e293b;    /* Darkest - Headings and dark text */
+  --color-text-800: #334155;         /* Dark - Primary body text */
+  --color-text-700: #475569;         /* Medium dark - Secondary text */
+  --color-text-600: #64748b;         /* Medium - Tertiary text and icons */
+  --color-text-500: #78716c;         /* Light - Placeholder text */
+  
+  --color-border-200: #e2e8f0;       /* Light - Borders and dividers */
+  --color-border-300: #cbd5e1;       /* Medium - Input borders */
+  
+  --color-bg-light-100: #f1f5f9;     /* Very light gray - Button backgrounds, badges */
+  --color-bg-light-200: #fafafe;     /* Alternate light background */
+  
+  /* ========================================
+     ACCENT COLOR (Exception)
+     ======================================== */
+  --color-accent-red: #dc2626;       /* Red - Reserved for logout button only */
+  
+  /* ========================================
+     SEMANTIC COLORS
+     ======================================== */
+  --color-status-open: #007AFF;      /* Open/Active status - Electric blue */
+  --color-status-open-bg: #f0f8ff;   /* Open status background */
+  
+  --color-status-closed: #475569;    /* Closed status - Gray */
+  --color-status-closed-bg: #f1f5f9; /* Closed status background */
+  
+  --color-status-pending: #475569;   /* Pending status - Gray */
+  --color-status-pending-bg: #f1f5f9; /* Pending status background */
+  
+  /* ========================================
+     FUNCTIONAL COLORS
+     ======================================== */
+  --color-success: #007AFF;          /* Primary success (electric blue) */
+  --color-danger: #dc2626;           /* Danger/Error (red) */
+  --color-warning: #7c3aed;          /* Warning (purple) */
+  --color-info: #007AFF;             /* Information (electric blue) */
+  
+  /* ========================================
+     SHADOW & TRANSPARENCY
+     ======================================== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 10px 40px rgba(0, 0, 0, 0.3);
+  
+  --overlay-light: rgba(0, 0, 0, 0.5);
+  --overlay-dark: rgba(0, 0, 0, 0.6);
+  --overlay-darkest: rgba(0, 0, 0, 0.9);
+  
+  --blur-light: rgba(0, 122, 255, 0.1);  /* Electric blue with transparency */
+}
+
+/* ========================================
+   PREBUILT UTILITY CLASSES USING VARIABLES
+   (Optional - for convenience)
+   ======================================== */
+
+.text-primary {
+  color: var(--color-text-dark-900);
+}
+
+.text-secondary {
+  color: var(--color-text-700);
+}
+
+.text-tertiary {
+  color: var(--color-text-600);
+}
+
+.bg-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.bg-secondary {
+  background-color: var(--color-bg-light-100);
+  color: var(--color-text-dark-900);
+}
+
+.border-light {
+  border-color: var(--color-border-200);
+}
+
+.border-medium {
+  border-color: var(--color-border-300);
+}
+
+.status-open {
+  background-color: var(--color-status-open-bg);
+  color: var(--color-status-open);
+}
+
+.status-closed {
+  background-color: var(--color-status-closed-bg);
+  color: var(--color-status-closed);
+}
+
+/* ========================================
+   USAGE EXAMPLES IN STYLES
+   ======================================== */
+
+/*
+Example 1: Primary Button
+button.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+button.btn-primary:hover {
+  background-color: var(--color-primary-hover);
+}
+
+Example 2: Card Container
+.card {
+  background-color: var(--color-bg-container);
+  border: 1px solid var(--color-border-200);
+  box-shadow: var(--shadow-md);
+}
+
+Example 3: Text Hierarchy
+h1, h2, h3 { color: var(--color-text-dark-900); }
+p { color: var(--color-text-700); }
+small { color: var(--color-text-600); }
+
+Example 4: Input Focus
+input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--blur-light);
+}
+
+Example 5: Modal
+.modal {
+  background-color: var(--color-bg-container);
+  box-shadow: var(--shadow-xl);
+}
+*/

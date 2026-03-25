@@ -54,7 +54,9 @@ class ResultadoDB(Base):
     carrera_id = Column(Integer, ForeignKey("carreras.id")) # Conecta con la otra tabla
     tiempo_oficial = Column(String) # Sugiero String al principio para evitar líos con INTERVAL
     posicion_general = Column(Integer)
+    posicion_categoria = Column(Integer, nullable=True)
     ritmo_medio = Column(String)
+    confianza = Column(Integer, nullable=True)  # Porcentaje de confianza (0-100)
     comentarios = Column(String, nullable=True)
 
     # Esto permite acceder a la info de la carrera desde un resultado: resultado.carrera.nombre
@@ -62,3 +64,32 @@ class ResultadoDB(Base):
 
 # Crea la tabla si no existe
 Base.metadata.create_all(bind=engine)
+
+# Migración: Agregar columnas faltantes si no existen
+def migrate_add_missing_columns():
+    """Añade columnas faltantes a la tabla resultados"""
+    try:
+        from sqlalchemy import text, inspect
+        
+        with engine.connect() as connection:
+            inspector = inspect(engine)
+            columns = {col['name'] for col in inspector.get_columns('resultados')}
+            
+            # Agregar posicion_categoria si no existe
+            if 'posicion_categoria' not in columns:
+                connection.execute(text("ALTER TABLE resultados ADD COLUMN posicion_categoria INTEGER"))
+                connection.commit()
+                print("✅ Agregada columna: posicion_categoria")
+            
+            # Agregar confianza si no existe
+            if 'confianza' not in columns:
+                connection.execute(text("ALTER TABLE resultados ADD COLUMN confianza INTEGER"))
+                connection.commit()
+                print("✅ Agregada columna: confianza")
+    
+    except Exception as e:
+        if "already exists" not in str(e) and "duplicate" not in str(e):
+            print(f"⚠️ Migración: {e}")
+
+# Ejecutar migración al cargar el módulo
+migrate_add_missing_columns()

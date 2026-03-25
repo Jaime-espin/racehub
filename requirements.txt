@@ -71,3 +71,5 @@ zstandard==0.25.0
 uvicorn
 jinja2
 shortuuid
+python-multipart
+PyPDF2==3.0.1
