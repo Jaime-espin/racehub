@@ -145,10 +145,8 @@
                         accionExtra = `
                             <button onclick="toggleDesplegable('${idDesplegable}')" title="Ver resultado" style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; margin-right:8px; transition:all 0.3s;" onmouseover="this.style.background='#e0e7ff'; this.style.transform='scale(1.05)'" onmouseout="this.style.background='#f1f5f9'; this.style.transform='scale(1)'">
                                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#007AFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
-                                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path>
-                                    <path d="M21 3v5h-5"></path>
-                                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path>
-                                    <path d="M3 21v-5h5"></path>
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                    <circle cx="12" cy="12" r="3"></circle>
                                 </svg>
                             </button>
                         `;
@@ -195,23 +193,23 @@
                 if (tieneResultado && esPasada) {
                     const res = c.resultados[0];
                     html += `<tr id="${idDesplegable}" class="fila-desplegable" style="display:none;">
-                        <td colspan="6">
-                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:20px; margin:10px 0; font-size:14px;">
+                        <td colspan="6" style="padding:20px;">
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:20px; font-size:14px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
                                     <h3 style="margin:0; color:#1e293b; font-size:16px; font-weight:600;">Resultado Guardado</h3>
-                                    <button onclick="toggleDesplegable('${idDesplegable}')" style="background:#f1f5f9; color:#007AFF; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:500; transition:all 0.3s;" onmouseover="this.style.background='#e0e7ff'" onmouseout="this.style.background='#f1f5f9'">Cerrar</button>
+                                    <button onclick="toggleDesplegable('${idDesplegable}')" style="background:#f1f5f9; color:#007AFF; border:none; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:500; transition:all 0.3s;" onmouseover="this.style.background='#e0e7ff'; this.style.color='#0050c8'" onmouseout="this.style.background='#f1f5f9'; this.style.color='#007AFF'">Cerrar</button>
                                 </div>
-                                <div style="color:#1e293b; display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px;">
+                                <div style="color:#1e293b; display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; min-height:60px;">
                                     <div>
-                                        <div style="font-size:12px; color:#64748b; font-weight:500; margin-bottom:4px;">Tiempo</div>
+                                        <div style="font-size:12px; color:#64748b; font-weight:500; margin-bottom:8px;">Tiempo</div>
                                         <div style="font-weight:600; font-size:18px; color:#007AFF;">${res.tiempo_oficial || '--'}</div>
                                     </div>
                                     <div>
-                                        <div style="font-size:12px; color:#64748b; font-weight:500; margin-bottom:4px;">Posición General</div>
+                                        <div style="font-size:12px; color:#64748b; font-weight:500; margin-bottom:8px;">Posición General</div>
                                         <div style="font-weight:600; font-size:18px; color:#007AFF;">${res.posicion_general || '--'}</div>
                                     </div>
                                     <div>
-                                        <div style="font-size:12px; color:#64748b; font-weight:500; margin-bottom:4px;">Categoría</div>
+                                        <div style="font-size:12px; color:#64748b; font-weight:500; margin-bottom:8px;">Categoría</div>
                                         <div style="font-weight:600; font-size:18px; color:#007AFF;">${res.posicion_categoria || '--'}</div>
                                     </div>
                                 </div>
@@ -235,8 +233,19 @@
         function toggleDesplegable(idDesplegable) {
             const fila = document.getElementById(idDesplegable);
             if (fila) {
-                const estaOculta = fila.style.display === 'none' || !fila.style.display;
+                // Obtener display computado para más confiabilidad
+                const displayComputado = window.getComputedStyle(fila).display;
+                const estaOculta = displayComputado === 'none';
+                
+                // Cambiar visibilidad
                 fila.style.display = estaOculta ? 'table-row' : 'none';
+                
+                // Hacer scroll suave si el desplegable se abre
+                if (estaOculta) {
+                    setTimeout(() => {
+                        fila.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
+                }
             }
         }
 

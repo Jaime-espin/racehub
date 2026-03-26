@@ -185,6 +185,28 @@ td {
     color: #475569;
 }
 
+/* Fila desplegable de resultados */
+.fila-desplegable {
+    background: #f8fafc;
+    animation: slideDown 0.3s ease-out;
+}
+
+.fila-desplegable td {
+    padding: 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 /* Spinner de carga */
 #loading {
     display: none;
