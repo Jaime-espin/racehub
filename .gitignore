@@ -59,5 +59,6 @@ Thumbs.db
 *.tmp
 *.bak
 
-# Archivos de prueba
+# Archivos de prueba y archivo
 borrador/
+_archive/

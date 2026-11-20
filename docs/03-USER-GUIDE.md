@@ -1,6 +1,6 @@
-# 👤 Guía de Usuario
+#  Guía de Usuario
 
-## 🎯 Casos de Uso
+##  Casos de Uso
 
 ### Caso 1: Buscar y Agregar una Carrera
 
@@ -73,13 +73,30 @@
 
 ---
 
-## 🛠️ Funcionalidades
+## Funcionalidades
 
 ### Calendario de Carreras
 
 - **Vista mensual**: Arrastra el calendario para cambiar meses
 - **Colores por deporte**: Running (rojo), Trail (verde), Ciclismo (azul), etc.
 - **Filtros**: Muestra solo el deporte que quieres
+
+### Planificación de Calendario
+
+- **Candidatas**: carreras que te interesan pero aún no has decidido.
+- **Seleccionadas**: pruebas que consideras seriamente para tu calendario.
+- **Inscritas**: carreras ya confirmadas.
+- **Descartadas**: pruebas que decides dejar fuera.
+
+**Cómo usarlo**:
+1. Al añadir una carrera, queda como **Candidata**.
+2. Muévela a **Seleccionada** cuando quieras compararla con otras.
+3. Si te inscribes, márcala como **Inscrita**.
+4. Si la descartas, pásala a **Descartada**.
+
+**Colisiones**:
+- Solo se muestran en **Seleccionadas** e **Inscritas**.
+- Si dos carreras comparten fecha, verás una etiqueta de **Colisión** para decidir.
 
 ### Mi Perfil
 
@@ -95,7 +112,7 @@
 
 ---
 
-## ⚙️ Uso desde Terminal (CLI)
+## Uso desde Terminal (CLI)
 
 Si prefieres usar la línea de comandos, ejecuta:
 
@@ -111,7 +128,7 @@ python src/main.py
 
 ---
 
-## 🎨 Personalización
+##  Personalización
 
 ### Cambiar el Tema
 
@@ -125,21 +142,21 @@ Edita `static/styles.css` para cambiar colores, fuentes, etc.
 
 ---
 
-## 📱 Iconos y Símbolos
+##  Iconos y Símbolos
 
 | Símbolo | Significado |
 |---------|----------|
-| ✅ | Completado exitosamente |
-| ❌ | Error o procesamiento fallido |
-| ⚠️ | Advertencia o información importante |
-| 🔎 | Búsqueda en progreso |
-| 📅 | Fecha/Calendario |
-| 🏆 | Resultado encontrado |
-| 🚴 | Deporte/Actividad |
+|  | Completado exitosamente |
+|  | Error o procesamiento fallido |
+| [Aviso] | Advertencia o información importante |
+|  | Búsqueda en progreso |
+|  | Fecha/Calendario |
+|  | Resultado encontrado |
+|  | Deporte/Actividad |
 
 ---
 
-## 💡 Consejos
+##  Consejos
 
 ### Para Mejores Resultados de Búsqueda
 
@@ -165,7 +182,7 @@ Edita `static/styles.css` para cambiar colores, fuentes, etc.
 
 ---
 
-## ❓ Preguntas Frecuentes
+##  Preguntas Frecuentes
 
 **P: ¿Qué información necesita la IA para buscar una carrera?**
 R: Solo el nombre. A partir de ahí, busca automáticamente la fecha, distancias y lugar oficiales.

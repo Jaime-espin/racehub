@@ -28,6 +28,8 @@ CREATE TABLE carreras (
     distancia_resumen VARCHAR(255),
     url_oficial TEXT,
     estado_inscripcion VARCHAR(50) DEFAULT 'pendiente',
+    estado_planificacion VARCHAR(50) DEFAULT 'candidata',
+    fecha_inscripcion DATE,
     CONSTRAINT carrera_usuario_unica UNIQUE (user_id, nombre, fecha) -- Evita duplicados POR usuario
 );
 
@@ -38,6 +40,8 @@ CREATE TABLE resultados (
     carrera_id INTEGER REFERENCES carreras(id), -- Esto conecta con la tabla de arriba
     tiempo_oficial VARCHAR(50),                 -- Formato texto para flexibilidad (ej: "01:30:45")
     posicion_general INTEGER,
+    posicion_categoria INTEGER,
     ritmo_medio VARCHAR(50),                    -- Ej: "4:15 min/km"
+    confianza INTEGER,
     comentarios TEXT                            -- Para sensaciones o clima
 );

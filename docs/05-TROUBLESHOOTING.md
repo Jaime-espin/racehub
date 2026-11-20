@@ -1,6 +1,6 @@
-# 🔧 Troubleshooting y Solución de Problemas
+#  Troubleshooting y Solución de Problemas
 
-## ⚡ Problemas Comunes
+##  Problemas Comunes
 
 ### 1. \"ERROR: TAVILY_API_KEY no está configurada\"
 
@@ -61,18 +61,18 @@
    DATABASE_URL=postgresql://usuario:contraseña@localhost:5432/racehub
    
    # Ejemplo correcto:
-   DATABASE_URL=postgresql://jaime:6999@localhost:5432/racehub
+   DATABASE_URL=postgresql://usuario:contrasena@localhost:5432/racehub
    ```
 
 3. **Verifica que la BD existe**:
    ```bash
-   psql -U jaime -d racehub -c \"\\dt\"
+   psql -U usuario -d racehub -c \"\\dt\"
    ```
    
    Si da error, créala:
    ```bash
    psql -U postgres -c \"CREATE DATABASE racehub\"
-   psql -U jaime -d racehub -f db/schema.sql
+   psql -U usuario -d racehub -f db/schema.sql
    ```
 
 4. **Verifica credenciales**:
@@ -126,11 +126,11 @@
 
 3. **Verifica que las claves están en `.env` SIN espacios**:
    ```env
-   # ❌ MALO
+   #  MALO
    GROQ_API_KEY = tu_clave_aqui
    TAVILY_API_KEY= tu_clave
    
-   # ✅ CORRECTO
+   #  CORRECTO
    GROQ_API_KEY=tu_clave_aqui
    TAVILY_API_KEY=tu_clave
    ```
@@ -184,7 +184,7 @@
 
 1. **Revisa los logs en la terminal**:
    ```
-   ❌ Error al procesar con el LLM: [mensaje específico del error]
+    Error al procesar con el LLM: [mensaje específico del error]
    ```
 
 2. **Posibles causas**:
@@ -300,7 +300,7 @@
 
 ---
 
-## 🧪 Debugging Avanzado
+##  Debugging Avanzado
 
 ### Activar logs detallados
 
@@ -352,7 +352,7 @@ print(engine.execute(\"SELECT 1\").fetchall())
 
 ---
 
-## 📞 Obtener Ayuda
+##  Obtener Ayuda
 
 1. **Lee los logs**: Están en la terminal donde ejecutaste la app
 2. **Revisa la documentación**: [docs/](./docs/)

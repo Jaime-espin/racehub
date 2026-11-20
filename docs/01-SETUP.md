@@ -1,4 +1,4 @@
-# 🚀 Setup e Instalación de RaceHub
+#  Setup e Instalación de RaceHub
 
 ## Requisitos Previos
 
@@ -16,24 +16,24 @@ psql -U postgres
 
 # Dentro de psql, crear la base de datos
 CREATE DATABASE racehub;
-CREATE USER jaime WITH PASSWORD '6999';
-ALTER ROLE jaime SET client_encoding TO 'utf8';
-ALTER ROLE jaime SET default_transaction_isolation TO 'read committed';
-ALTER ROLE jaime SET default_transaction_deferrable TO on;
-ALTER ROLE jaime SET timezone TO 'UTC';
-GRANT ALL PRIVILEGES ON DATABASE racehub TO jaime;
+CREATE USER usuario WITH PASSWORD 'contrasena';
+ALTER ROLE usuario SET client_encoding TO 'utf8';
+ALTER ROLE usuario SET default_transaction_isolation TO 'read committed';
+ALTER ROLE usuario SET default_transaction_deferrable TO on;
+ALTER ROLE usuario SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE racehub TO usuario;
 \q
 ```
 
 ### Cargar el esquema
 
 ```bash
-psql -U jaime -d racehub -f db/schema.sql
+psql -U usuario -d racehub -f db/schema.sql
 ```
 
 Verifica las tablas creadas:
 ```bash
-psql -U jaime -d racehub -c "\dt"
+psql -U usuario -d racehub -c "\dt"
 ```
 
 ## Paso 2: Configurar Variables de Entorno
@@ -52,7 +52,7 @@ GROQ_API_KEY=your_groq_api_key_here
 TAVILY_API_KEY=your_tavily_api_key_here
 
 # Database
-DATABASE_URL=postgresql://jaime:6999@localhost:5432/racehub
+DATABASE_URL=postgresql://usuario:contrasena@localhost:5432/racehub
 ```
 
 > **Obtener API Keys:**
@@ -97,17 +97,17 @@ La API Swagger estará disponible en: **http://127.0.0.1:8000/docs**
 
 ## Verificación
 
-✅ Base de datos conectada
+ Base de datos conectada
 ```bash
 psql -U jaime -d racehub -c "SELECT COUNT(*) FROM carreras;"
 ```
 
-✅ Dependencias instaladas
+ Dependencias instaladas
 ```bash
 pip list | grep -E "fastapi|sqlalchemy|langchain|groq|tavily"
 ```
 
-✅ Aplicación funcionando
+ Aplicación funcionando
 ```bash
 curl http://127.0.0.1:8000/
 ```

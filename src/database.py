@@ -11,7 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Formato: postgresql://usuario:contraseña@localhost:5432/nombre_db
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://jaime:6999@localhost:5432/racehub")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://usuario:contrasena@localhost:5432/racehub")
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(DATABASE_URL) #Es el motor que se encarga de conectar con la base de datos. Le indicamos el destino
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #Crea una fábrica de "sesiones". Una sesión es como una conversación con la base de datos: la abres, haces cambios y la cierras.
@@ -42,6 +44,8 @@ class CarreraDB(Base):
     distancia_resumen = Column(String)
     url_oficial = Column(String)
     estado_inscripcion = Column(String, default="pendiente")
+    estado_planificacion = Column(String, default="candidata")
+    fecha_inscripcion = Column(Date, nullable=True)
     
     # Relaciones
     usuario = relationship("UserDB", back_populates="carreras")
@@ -62,34 +66,40 @@ class ResultadoDB(Base):
     # Esto permite acceder a la info de la carrera desde un resultado: resultado.carrera.nombre
     carrera = relationship("CarreraDB", back_populates="resultados")
 
-# Crea la tabla si no existe
-Base.metadata.create_all(bind=engine)
-
-# Migración: Agregar columnas faltantes si no existen
 def migrate_add_missing_columns():
-    """Añade columnas faltantes a la tabla resultados"""
+    """Anade columnas faltantes a las tablas existentes"""
     try:
         from sqlalchemy import text, inspect
-        
         with engine.connect() as connection:
             inspector = inspect(engine)
-            columns = {col['name'] for col in inspector.get_columns('resultados')}
-            
-            # Agregar posicion_categoria si no existe
-            if 'posicion_categoria' not in columns:
+            columnas_resultados = {col['name'] for col in inspector.get_columns('resultados')}
+            columnas_carreras = {col['name'] for col in inspector.get_columns('carreras')}
+
+            if 'posicion_categoria' not in columnas_resultados:
                 connection.execute(text("ALTER TABLE resultados ADD COLUMN posicion_categoria INTEGER"))
                 connection.commit()
-                print("✅ Agregada columna: posicion_categoria")
-            
-            # Agregar confianza si no existe
-            if 'confianza' not in columns:
+
+            if 'confianza' not in columnas_resultados:
                 connection.execute(text("ALTER TABLE resultados ADD COLUMN confianza INTEGER"))
                 connection.commit()
-                print("✅ Agregada columna: confianza")
-    
+
+            if 'estado_planificacion' not in columnas_carreras:
+                connection.execute(text("ALTER TABLE carreras ADD COLUMN estado_planificacion VARCHAR(50) DEFAULT 'candidata'"))
+                connection.commit()
+
+            if 'fecha_inscripcion' not in columnas_carreras:
+                connection.execute(text("ALTER TABLE carreras ADD COLUMN fecha_inscripcion DATE"))
+                connection.commit()
+
+            connection.execute(text("UPDATE carreras SET estado_planificacion = 'candidata' WHERE estado_planificacion IS NULL"))
+            connection.commit()
     except Exception as e:
         if "already exists" not in str(e) and "duplicate" not in str(e):
-            print(f"⚠️ Migración: {e}")
+            print(f"Aviso de migracion: {e}")
 
-# Ejecutar migración al cargar el módulo
-migrate_add_missing_columns()
+try:
+    Base.metadata.create_all(bind=engine)
+    migrate_add_missing_columns()
+except Exception as e:
+    if "already exists" not in str(e) and "duplicate" not in str(e):
+        print(f"Aviso de conexion a base de datos: {e}")

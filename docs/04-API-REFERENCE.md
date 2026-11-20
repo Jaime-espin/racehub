@@ -1,12 +1,12 @@
-# 📚 Referencia de API
+#  Referencia de API
 
-## 🔗 URL Base
+##  URL Base
 
 ```
 http://127.0.0.1:8000
 ```
 
-## 🔐 Autenticación
+##  Autenticación
 
 Todas las rutas (excepto las públicas) requieren una cookie `user_email`.
 
@@ -20,24 +20,26 @@ curl -X POST http://127.0.0.1:8000/auth/login \
 
 ---
 
-## 📋 Endpoints
+##  Endpoints
 
-### 🔑 Autenticación
+###  Autenticación
 
 #### POST `/auth/login`
 Inicia sesión o crea una cuenta.
 
+  "estado_planificacion": "candidata",
+  "fecha_inscripcion": null,
+  "en_colision": false,
+  "colisiones_con": [],
 **Request Body**:
 ```json
 {
   \"email\": \"jaime@example.com\"
-}
 ```
 
 **Response** (200 OK):
 ```json
 {
-  \"mensaje\": \"Login exitoso\",
   \"user\": \"jaime@example.com\"
 }
 ```
@@ -60,13 +62,10 @@ Cierra sesión.
 ---
 
 #### GET `/auth/me`
-Obtiene los datos del usuario autenticado.
 
 **Cookies Requeridas**:
 - `user_email`
-
 **Response** (200 OK):
-```json
 {
   \"email\": \"jaime@example.com\",
   \"nombre\": \"Jaime Espín\"
@@ -75,21 +74,22 @@ Obtiene los datos del usuario autenticado.
 
 ---
 
-### 👤 Perfil
+###  Perfil
 
 #### GET `/perfil`
 Obtiene el perfil completo del usuario.
-
+    \"estado_planificacion\": \"candidata\",
+    \"fecha_inscripcion\": null,
+    \"en_colision\": false,
+    \"colisiones_con\": [],
 **Cookies Requeridas**:
 - `user_email`
 
-**Response** (200 OK):
 ```json
 {
   \"nombre\": \"Jaime Espín\",
   \"email\": \"jaime@example.com\"
 }
-```
 
 ---
 
@@ -113,7 +113,7 @@ Actualiza el perfil del usuario.
 
 ---
 
-### 🏆 Carreras
+###  Carreras
 
 #### POST `/carreras/buscar`
 Busca una carrera en internet usando IA.
@@ -190,6 +190,10 @@ Obtiene todas las carreras del usuario.
     \"distancia_resumen\": \"42.195 km\",
     \"url_oficial\": \"https://...\",
     \"estado_inscripcion\": \"abierta\",
+    \"estado_planificacion\": \"candidata\",
+    \"fecha_inscripcion\": null,
+    \"en_colision\": false,
+    \"colisiones_con\": [],
     \"resultados\": []
   }
 ]
@@ -197,7 +201,53 @@ Obtiene todas las carreras del usuario.
 
 ---
 
-### 🎯 Resultados
+#### POST `/carreras/{id}/estado`
+Actualiza el estado de planificación de una carrera.
+
+**Cookies Requeridas**:
+- `user_email`
+
+**Request Body**:
+```json
+{
+  \"estado\": \"seleccionada\"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  \"mensaje\": \"Estado actualizado\",
+  \"estado\": \"seleccionada\"
+}
+```
+
+---
+
+#### POST `/carreras/{id}/inscripcion`
+Marca una carrera como inscrita.
+
+**Cookies Requeridas**:
+- `user_email`
+
+**Request Body** (opcional):
+```json
+{
+  \"fecha_inscripcion\": \"2026-04-28\"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  \"mensaje\": \"Inscripcion registrada\",
+  \"fecha_inscripcion\": \"2026-04-28\"
+}
+```
+
+---
+
+###  Resultados
 
 #### POST `/resultados/buscar`
 Busca el resultado de un usuario en una carrera.
@@ -250,6 +300,7 @@ Sube un PDF/CSV con resultados para extraer datos.
 
 **Parámetros (multipart/form-data)**:
 - `file`: Archivo PDF o CSV
+- `nombre_carrera`: Nombre de la carrera
 - `nombre_corredor`: Nombre a buscar (opcional)
 - `anio`: Año de la carrera (opcional, default 2024)
 
@@ -257,6 +308,7 @@ Sube un PDF/CSV con resultados para extraer datos.
 ```bash
 curl -X POST http://127.0.0.1:8000/resultados/buscar-archivo \
   -F \"file=@resultados.pdf\" \
+  -F \"nombre_carrera=Barcelona Marathon\" \
   -F \"nombre_corredor=Jaime Espín\" \
   -F \"anio=2026\" \
   -b cookies.txt
@@ -278,32 +330,59 @@ curl -X POST http://127.0.0.1:8000/resultados/buscar-archivo \
 
 ---
 
-### 📄 Páginas Públicas
+#### POST `/resultados/manual`
+Guarda un resultado ingresado manualmente.
+
+**Cookies Requeridas**:
+- `user_email`
+
+**Request Body**:
+```json
+{
+  \"nombre_carrera\": \"Barcelona Marathon 2026\",
+  \"anio\": 2026,
+  \"tiempo_oficial\": \"1:30:45\",
+  \"posicion_general\": 234,
+  \"posicion_categoria\": 45,
+  \"ritmo_medio\": \"2:08 min/km\"
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  \"mensaje\": \"Resultado guardado\"
+}
+```
+
+---
+
+###  Páginas Públicas
 
 #### GET `/`
 Página principal (requiere autenticación).
 
 ---
 
-#### GET `/compartido/{share_token}`
+#### GET `/share/{share_token}`
 Versión pública del calendario de otro usuario.
 
 **Response**: HTML renderizado con el calendario público
 
 ---
 
-## 🔄 Estado HTTP
+##  Estado HTTP
 
 | Código | Significado |
 |--------|------------|
-| 200 | ✅ Exitoso |
-| 401 | 🔒 No autenticado (cookie faltante) |
-| 404 | ❌ Recurso no encontrado |
-| 500 | 💥 Error del servidor (IA, BD, etc.) |
+| 200 |  Exitoso |
+| 401 |  No autenticado (cookie faltante) |
+| 404 |  Recurso no encontrado |
+| 500 |  Error del servidor (IA, BD, etc.) |
 
 ---
 
-## 🧪 Ejemplos con Python
+##  Ejemplos con Python
 
 ### Buscar una carrera
 
@@ -363,7 +442,7 @@ print(f\"Posición: {resultado['posicion']}\")
 
 ---
 
-## 📖 Documentación Interactiva
+##  Documentación Interactiva
 
 Swagger UI (interfaz gráfica):
 ```

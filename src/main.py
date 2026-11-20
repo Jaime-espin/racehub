@@ -1,10 +1,7 @@
-#Este script constituye el núcleo del sistema de ingesta 
-#de datos. Utiliza un Agente de IA (Llama 3.3 vía Groq) y
-#el motor de búsqueda Tavily para automatizar la extracción
-#de información deportiva. Los datos son validados mediante
-#Pydantic y persistidos en PostgreSQL, implementando una 
-#lógica de control de duplicados basada en restricciones de
-#integridad referencial.
+# Script del sistema de ingesta de datos.
+# Utiliza un agente LLM via Groq y el motor de busqueda Tavily
+# para automatizar la extraccion de informacion deportiva.
+# Los datos son validados con Pydantic y persistidos en base de datos.
 
 import os
 from datetime import datetime
@@ -19,25 +16,20 @@ from src.database import SessionLocal, CarreraDB, ResultadoDB
 
 load_dotenv()
 
-# Validación de variables de entorno requeridas
+# Validacion de variables de entorno requeridas
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 if not TAVILY_API_KEY:
-    raise ValueError("❌ ERROR: TAVILY_API_KEY no está configurada en el archivo .env")
+    raise ValueError("ERROR: TAVILY_API_KEY no esta configurada en el archivo .env")
 if not GROQ_API_KEY:
-    raise ValueError("❌ ERROR: GROQ_API_KEY no está configurada en el archivo .env")
+    raise ValueError("ERROR: GROQ_API_KEY no esta configurada en el archivo .env")
 
-# --- 1. SCHEMA ---
-#Obliga a la IA a que su respuesta tenga una estructura fija.
-# Si la IA intenta responder con un párrafo,
-# Pydantic lanzará un error.
-# Field(description=...): La IA lee estas descripciones 
-# para saber qué tipo de contenido debe poner en cada variable.
+# --- 1. SCHEMAS ---
 
 class CarreraSchema(BaseModel):
     nombre_oficial: str = Field(description="Nombre oficial", min_length=3)
-    deporte: str = Field(description="Obligatorio: Running, Trail, Ciclismo, Gravel o Triatlón")
+    deporte: str = Field(description="Obligatorio: Running, Trail, Ciclismo, Gravel o Triatlon")
     fecha: str = Field(description="Formato YYYY-MM-DD")
     lugar: str = Field(min_length=2)
     distancias: List[str] = Field(min_items=1)
@@ -55,153 +47,187 @@ class CarreraSchema(BaseModel):
     @validator('fecha')
     def validar_formato_fecha(cls, v):
         try:
-            # Validar que sea parseable como fecha
             parser.parse(v)
             return v
         except (ValueError, TypeError) as e:
-            raise ValueError("La fecha debe estar en formato válido (preferentemente YYYY-MM-DD)") from e
+            raise ValueError("La fecha debe estar en formato valido (preferentemente YYYY-MM-DD)") from e
     
     @validator('deporte')
     def validar_deporte(cls, v):
-        deportes_validos = ['running', 'trail', 'ciclismo', 'gravel', 'triatlón', 'triatlon', 'snow running']
+        deportes_validos = ['running', 'trail', 'ciclismo', 'gravel', 'triatlon', 'triatlon', 'snow running']
         if v.lower() not in deportes_validos:
-            # Aceptar el valor pero advertir
-            print(f"⚠️ Advertencia: Deporte '{v}' no está en la lista estándar")
+            print(f"Advertencia: Deporte '{v}' no esta en la lista estandar")
         return v
 
 class ResultadoSchema(BaseModel):
     tiempo_oficial: Optional[str] = Field(None, description="Tiempo Oficial (ej: '1:30:45'). Si no se encuentra, dejar null")
-    posicion_general: Optional[int] = Field(None, description="Posición numérica absoluta. Null si no hay datos.")
-    posicion_categoria: Optional[int] = Field(None, description="Posición en su categoría. Null si no hay datos.")
+    posicion_general: Optional[int] = Field(None, description="Posicion numerica absoluta. Null si no hay datos.")
+    posicion_categoria: Optional[int] = Field(None, description="Posicion en su categoria. Null si no hay datos.")
     ritmo_medio: Optional[str] = Field(None, description="Ritmo medio (ej: '4:30 min/km'). Null si no hay datos.")
     confianza: Optional[float] = Field(0.5, description="Nivel de confianza (0.0-1.0). 0.9 = alta confianza regex, 0.65 = baja confianza LLM")
 
-#---Motores---
+    @validator('tiempo_oficial', pre=True)
+    def parse_tiempo_flexible(cls, v):
+        if v is None or str(v).strip().lower() in ['n/a', 'na', 'none', 'null', '-', 'undefined', 'no encontrado', '']:
+            return None
+        return str(v).strip()
+
+    @validator('posicion_general', 'posicion_categoria', pre=True)
+    def parse_posicion_flexible(cls, v):
+        if v is None or v == '' or str(v).lower() in ['n/a', 'na', 'none', 'null', '-', 'undefined']:
+            return None
+        import re
+        m = re.search(r'\d+', str(v))
+        return int(m.group(0)) if m else None
+
+# --- MOTORES DE BUSQUEDA E IA ---
 tavily = TavilyClient(api_key=TAVILY_API_KEY)
 
-# Configuración con reintentos para manejar Rate Limits (Error 429)
-# Aumentamos max_retries y timeout para dar margen en casos de saturación
-llm = ChatGroq(
-    model_name="llama-3.3-70b-versatile", 
-    temperature=0, 
-    api_key=GROQ_API_KEY,
-    max_retries=3
-)
-llm_estructurado_carreras = llm.with_structured_output(CarreraSchema)
-llm_estructurado_resultado = llm.with_structured_output(ResultadoSchema)
-#Convierte a un modelo de lenguaje (que es un generador de
-#texto probabilístico) en una función de software 
-#determinista que devuelve un objeto Python.
+def _crear_llm_estructurado(schema_cls):
+    """
+    Inicializa el LLM de Groq con structured output y cadena de fallback
+    para garantizar disponibilidad ante limites de tasa o variaciones de catalogo.
+    """
+    modelo_principal = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    modelos_candidatos = [
+        modelo_principal,
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.8-27b",
+        "llama-3.1-8b-instant",
+        "llama-3.3-70b-versatile",
+    ]
+    modelos_unicos = list(dict.fromkeys(modelos_candidatos))
 
-# --- 2. FUNCIÓN DE GUARDADO ---
+    principal = ChatGroq(
+        model_name=modelos_unicos[0],
+        temperature=0,
+        api_key=GROQ_API_KEY,
+        max_retries=2
+    ).with_structured_output(schema_cls)
+
+    if len(modelos_unicos) > 1:
+        fallbacks = [
+            ChatGroq(model_name=m, temperature=0, api_key=GROQ_API_KEY, max_retries=2).with_structured_output(schema_cls)
+            for m in modelos_unicos[1:]
+        ]
+        return principal.with_fallbacks(fallbacks)
+    return principal
+
+llm_estructurado_carreras = _crear_llm_estructurado(CarreraSchema)
+llm_estructurado_resultado = _crear_llm_estructurado(ResultadoSchema)
+
+# --- 2. PERSISTENCIA EN BASE DE DATOS ---
 def guardar_en_db(datos_ia: CarreraSchema, user_id: int = 1):
     db: Session = SessionLocal()
     try:
         fecha_objeto = parser.parse(datos_ia.fecha).date()
 
         nueva_carrera = CarreraDB(
-            user_id=user_id, # Asignamos al usuario
+            user_id=user_id,
             nombre=datos_ia.nombre_oficial,
             deporte=datos_ia.deporte, 
             fecha=fecha_objeto,
             localizacion=datos_ia.lugar,
             distancia_resumen=", ".join(datos_ia.distancias),
             url_oficial=datos_ia.url_oficial,
-            estado_inscripcion=datos_ia.estado_inscripcion.lower() 
+            estado_inscripcion=datos_ia.estado_inscripcion.lower(),
+            estado_planificacion="candidata"
         )
 
         db.add(nueva_carrera) 
         db.commit() 
-        print(f"✅ Guardada: {datos_ia.nombre_oficial} (User {user_id})")
+        print(f"[OK] Guardada: {datos_ia.nombre_oficial} (User {user_id})")
     
     except ValueError as e:
-        # Carrera duplicada o error de validación
         db.rollback()
         if "unique_violation" in str(e).lower() or "duplicate key" in str(e).lower():
-            print(f"⚠️ Aviso: La carrera '{datos_ia.nombre_oficial}' ya existe para esa fecha.")
+            print(f"[Aviso] La carrera '{datos_ia.nombre_oficial}' ya existe para esa fecha.")
         else:
-            print(f"❌ Error de validación: {e}")
+            print(f"[Error de validacion] {e}")
     except Exception as e:
-        # Error no esperado durante guardado en BD
         db.rollback()
-        print(f"❌ Error al guardar: {e}")
+        print(f"[Error de base de datos] {e}")
     finally:
         db.close()
 
-# --- 3. FUNCIÓN COMÚN DE BÚSQUEDA Y EXTRACCIÓN ---
+# --- 3. EXTRACCION CENTRALIZADA ---
 def buscar_y_extraer_datos(nombre_a_buscar: str, max_results: int = 6):
     """
-    Función centralizada que busca en internet y extrae datos estructurados.
-    Retorna el objeto CarreraSchema extraído por la IA.
+    Busca en internet y extrae datos estructurados de la carrera.
+    Retorna el objeto CarreraSchema.
     """
     if not nombre_a_buscar or not nombre_a_buscar.strip():
-        raise ValueError("❌ ERROR: El nombre de la carrera no puede estar vacío")
+        raise ValueError("ERROR: El nombre de la carrera no puede estar vacio")
     
     año_actual = datetime.now().year
-    query_optimizada = f"fecha y distancias oficiales carrera {nombre_a_buscar} {año_actual}"
+    query_optimizada = f"fecha celebracion y distancias oficiales carrera {nombre_a_buscar} {año_actual}"
     print(f"Buscando datos maestros de: {nombre_a_buscar}...")
     
     try:
         busqueda = tavily.search(query=query_optimizada, search_depth="advanced", max_results=max_results)
         
         if not busqueda.get('results'):
-            raise ValueError(f"❌ No se encontraron resultados para '{nombre_a_buscar}'")
+            raise ValueError(f"No se encontraron resultados para '{nombre_a_buscar}'")
             
         contexto = "\n---\n".join([res['content'] for res in busqueda['results']])
         
         if not contexto.strip():
-            raise ValueError("❌ El contexto de búsqueda está vacío")
+            raise ValueError("El contexto de busqueda esta vacio")
         
     except Exception as e:
-        print(f"❌ Error en la búsqueda con Tavily: {e}")
+        print(f"[Error en busqueda Tavily] {e}")
         raise
     
     prompt = f"""
-    Eres un analista de datos deportivos. Tu objetivo es extraer info precisa de: {nombre_a_buscar}.
+    Eres un analista experto en datos de competiciones deportivas.
+    Tu objetivo es extraer informacion oficial, precisa y verificada de la carrera: {nombre_a_buscar}.
     
     Contexto encontrado en internet:
     {contexto}
     
-    INSTRUCCIONES PARA EVITAR ERRORES:
-    1. FECHA: Busca la fecha de la PRÓXIMA edición. Si ves fechas de 2024 o anteriores, DESCÁRTALAS. Solo acepta fechas iguales o posteriores a {año_actual}
-    2. DISTANCIA: Busca el apartado de 'Recorrido' o 'Reglamento'. No inventes km. Si hay varias distancias, lístalas todas.
-    3. VERIFICACIÓN: Si los datos parecen contradictorios, prioriza la fuente que parezca la web oficial (.com o .es del evento).
-    4. DEPORTE: Identifica correctamente el tipo de deporte (Running, Trail, Ciclismo, Gravel, Triatlón, etc.).
+    INSTRUCCIONES OBLIGATORIAS:
+    1. FUENTES OFICIALES: Prioriza siempre plataformas oficiales de cronometraje (Global Tempo, Cruzando la Meta, Sportmaniacs, DorsalChip, CronoRacer, ChampionChip, etc.) y webs oficiales de ayuntamientos u organizadores. Descarta texto informal o publicaciones de redes sociales si contradicen los datos de los portales tecnicos.
+    2. FECHA DE CELEBRACION (DIA DE LA CARRERA): 
+       - Extrae la fecha exacta en la que se DISPUTA la carrera (el dia en que los atletas toman la salida) en formato YYYY-MM-DD.
+       - NO la confundas con la fecha de cierre de inscripciones, la fecha de recogida de dorsales ni la fecha de publicacion del cartel/noticia.
+       - Si una plataforma oficial de cronometraje (Cruzando La Meta, Global Tempo, etc.) o el reglamento indica la fecha de celebracion (por ejemplo '4 de octubre de 2026' o '25 de octubre de 2026'), utiliza exactamente esa fecha del evento (2026-10-04 o 2026-10-25).
+       - NUNCA muevas arbitrariamente el ano hacia el futuro si la prueba consultada o documentada tiene fecha en {año_actual}.
+       - Respeta la edicion y el ano de la convocatoria consultada.
+    3. DISTANCIAS: Extrae todas las distancias en una lista (ejemplo: ['27 km', '12.5 km', '15 km']). No inventes kilometrajes.
+    4. DEPORTE: Identifica correctamente: Running, Trail, Ciclismo, Gravel o Triatlon.
+    5. LUGAR: Municipio y provincia oficial.
+    6. URL OFICIAL: Si encuentras el enlace del portal de inscripcion o web del evento, incluyelo en url_oficial.
     """
     
     try:
         datos_extraidos = llm_estructurado_carreras.invoke(prompt)
         return datos_extraidos
     except ValueError as e:
-        # Re-raise validation errors from Pydantic
         raise
     except Exception as e:
         error_str = str(e)
         if "429" in error_str or "rate limit" in error_str.lower():
-            print(f"⏳ Límite de cuota excedido (Groq 429). Reintentar en unos minutos.")
-            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Por favor espera unos minutos antes de intentar de nuevo.") from e
+            print("Limite de cuota excedido (Groq 429).")
+            raise ValueError("El servicio de IA esta temporalmente saturado (Rate Limit 429). Por favor espera un minuto antes de intentar de nuevo.") from e
         
-        print(f"❌ Error al procesar con el LLM: {e}")
+        print(f"[Error al procesar con el LLM] {e}")
         raise
 
-# --- 4. FUNCIÓN PARA EJECUCIÓN INTERACTIVA (CLI) ---
+# --- 4. CLI INTERACTIVO ---
 def ejecutar_proyecto(nombre_a_buscar, user_id: int = 1):
-    """
-    Versión interactiva con confirmación humana para uso desde terminal.
-    """
     datos_extraidos = buscar_y_extraer_datos(nombre_a_buscar)
     
-    # Mostrar datos para validación humana
     print("\n" + "="*30)
-    print("📋 DATOS ENCONTRADOS POR LA IA")
+    print("DATOS ENCONTRADOS")
     print("="*30)
-    print(f"🏆 Nombre: {datos_extraidos.nombre_oficial}")
-    print(f"🚴 Deporte: {datos_extraidos.deporte}")
-    print(f"📅 Fecha: {datos_extraidos.fecha}")
-    print(f"📍 Lugar: {datos_extraidos.lugar}")
-    print(f"📏 Distancias: {', '.join(datos_extraidos.distancias)}")
-    print(f"🔗 URL: {datos_extraidos.url_oficial}")
-    print(f"📝 Estado: {datos_extraidos.estado_inscripcion}")
+    print(f"Nombre: {datos_extraidos.nombre_oficial}")
+    print(f"Deporte: {datos_extraidos.deporte}")
+    print(f"Fecha: {datos_extraidos.fecha}")
+    print(f"Lugar: {datos_extraidos.lugar}")
+    print(f"Distancias: {', '.join(datos_extraidos.distancias)}")
+    print(f"URL: {datos_extraidos.url_oficial}")
+    print(f"Estado: {datos_extraidos.estado_inscripcion}")
     print("="*30)
     
     confirmacion = input("\n¿Los datos son correctos? (s/n): ").lower()
@@ -210,54 +236,41 @@ def ejecutar_proyecto(nombre_a_buscar, user_id: int = 1):
         user_id = int(input("ID de usuario (1 para demo): ") or 1)
         guardar_en_db(datos_extraidos, user_id)
     else:
-        print("❌ Operación cancelada por el usuario. Los datos no se han guardado.")
+        print("Operacion cancelada por el usuario. Los datos no se han guardado.")
 
-# --- 5. FUNCIÓN PARA API WEB (sin interacción humana) ---
+# --- 5. FUNCION PARA API WEB ---
 def procesar_carrera_desde_web(nombre_a_buscar: str, user_id: int = 1):
-    """
-    Función para la API web: Busca, extrae y guarda automáticamente.
-    Sin preguntas de consola.
-    """
-    print(f"🌍 WEB solicitando búsqueda de: {nombre_a_buscar}...")
-    
+    print(f"Solicitud web de busqueda: {nombre_a_buscar}...")
     try:
         datos_extraidos = buscar_y_extraer_datos(nombre_a_buscar, max_results=5)
         guardar_en_db(datos_extraidos, user_id)
         return datos_extraidos
     except Exception as e:
-        print(f"❌ Error al procesar carrera desde web: {e}")
+        print(f"[Error procesando carrera desde web] {e}")
         raise
 
 def buscar_resultado_usuario(nombre_carrera: str, año: int, nombre: str):
-    # ESTRATEGIA DE BÚSQUEDA MEJORADA
-    # 1. Quitamos comillas para permitir formatos "Apellidos, Nombre"
-    # 2. Añadimos palabras clave típicas de listados
-    query_principal = f"{nombre_carrera} {año} clasificación {nombre}"
-    
-    print(f"🔎 Buscando: {query_principal}...")
+    query_principal = f"{nombre_carrera} {año} clasificacion {nombre}"
+    print(f"Buscando clasificacion: {query_principal}...")
     
     try:
-        # Buscamos con un poco más de profundidad (max_results=10) para pillar listados largos
         busqueda = tavily.search(query=query_principal, search_depth="advanced", max_results=10)
         
-        # Si no hay suerte, intentamos buscar el PDF o la web de resultados general
         if not busqueda.get('results'):
-             print("⚠️ Búsqueda específica vacía, intentando buscar listados generales...")
-             query_general = f"{nombre_carrera} {año} resultados pdf completo"
-             busqueda = tavily.search(query=query_general, search_depth="advanced", max_results=5)
+            print("Busqueda especifica sin resultados, probando listados generales...")
+            query_general = f"{nombre_carrera} {año} resultados pdf completo"
+            busqueda = tavily.search(query=query_general, search_depth="advanced", max_results=5)
              
         if not busqueda.get('results'):
-            # Devolvemos un objeto vacío en lugar de lanzar error, para que la API lo maneje
             return ResultadoSchema(tiempo_oficial=None, posicion_general=None, posicion_categoria=None, ritmo_medio=None)
             
-        # Preparamos el contexto incluyendo el Título de la página, que a veces tiene la fecha o el evento real
         contexto = "\n".join([
-            f"--- FUENTE: {res['url']} ---\nTÍTULO: {res['title']}\nCONTENIDO: {res['content']}\n" 
+            f"--- FUENTE: {res['url']} ---\nTITULO: {res['title']}\nCONTENIDO: {res['content']}\n" 
             for res in busqueda['results']
         ])
         
     except Exception as e:
-        print(f"❌ Error en la búsqueda con Tavily: {e}")
+        print(f"[Error en busqueda Tavily] {e}")
         raise
     
     prompt = f"""
@@ -265,84 +278,115 @@ def buscar_resultado_usuario(nombre_carrera: str, año: int, nombre: str):
     
     OBJETIVO: Encontrar el tiempo de "{nombre}" en "{nombre_carrera}" del año {año}.
     
-    CONTEXTO (Resultados de búsqueda):
+    CONTEXTO (Resultados de busqueda):
     {contexto}
     
-    INSTRUCCIONES DE EXTRACCIÓN:
+    INSTRUCCIONES DE EXTRACCION:
     1. FLEXIBILIDAD DE NOMBRE: Busca "{nombre}" pero acepta variaciones como:
-       - "Apellidos, Nombre" (Ej: "Espín Rodríguez, Jaime")
-       - Mayúsculas/Minúsculas
+       - "Apellidos, Nombre" (Ej: "Espin Rodriguez, Jaime")
+       - Mayusculas/Minusculas
        - Falta de tildes (Ej: "Jaime Espin")
     
     2. SI ENCUENTRAS EL DATO:
-       - Extrae Tiempo (hh:mm:ss), Posición General y Categoría si existen.
+       - Extrae Tiempo (hh:mm:ss), Posicion General y Categoria si existen.
        - Ritmo (min/km).
     
     3. SI NO ENCUENTRAS AL CORREDOR EXACTO:
        - Devuelve null en los campos. 
-       - NO alucines datos.
+       - NO inventes datos.
        
-    4. IMPORTANTE: Muchas veces los resultados están en formato "Pos. Nombre Tiempo". Busca ese patrón.
+    4. IMPORTANTE: Muchas veces los resultados estan en formato "Pos. Nombre Tiempo". Busca ese patron.
     """
     
     try:
         datos_extraidos = llm_estructurado_resultado.invoke(prompt)
         return datos_extraidos
     except ValueError as e:
-        # Re-raise validation errors from Pydantic
         raise
     except Exception as e:
         error_str = str(e)
         if "429" in error_str or "rate limit" in error_str.lower():
-            print(f"⏳ Límite de cuota excedido (Groq 429). Reintentar en unos minutos.")
-            raise ValueError("⚠️ El servicio de IA está saturado (Rate Limit 429). Intenta más tarde.") from e
-        print(f"❌ Error al procesar con el LLM: {e}")
+            print("Limite de cuota excedido (Groq 429).")
+            raise ValueError("El servicio de IA esta temporalmente saturado (Rate Limit 429). Intenta mas tarde.") from e
+        print(f"[Error al procesar con el LLM] {e}")
         raise
 
-# --- 2.1 FUNCIÓN PARA GUARDAR RESULTADOS ---
 def guardar_resultado_db(datos_ia: ResultadoSchema, nombre_carrera: str, año: int, user_id: int):
+    if not datos_ia or not datos_ia.tiempo_oficial or datos_ia.tiempo_oficial == "No encontrado":
+        return
+
+    import unicodedata
+    import re
+
+    def _sin_acentos_local(texto: str) -> str:
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', str(texto))
+            if unicodedata.category(c) != 'Mn'
+        ).lower()
+
     db: Session = SessionLocal()
     try:
-        # 1. Primero buscamos la carrera EN LA LISTA DEL USUARIO
-        carrera_existente = db.query(CarreraDB).filter(
-            CarreraDB.user_id == user_id,
-            CarreraDB.nombre.ilike(f"%{nombre_carrera}%")
-        ).first()
+        carreras_usuario = db.query(CarreraDB).filter(CarreraDB.user_id == user_id).all()
+        nb = _sin_acentos_local(nombre_carrera)
+
+        carrera_existente = None
+        # 1. Coincidencia directa o contenida completa
+        for c in carreras_usuario:
+            nc = _sin_acentos_local(c.nombre)
+            if nc == nb or nb in nc or nc in nb:
+                carrera_existente = c
+                break
+
+        # 2. Coincidencia por palabras clave nucleares (evitando genericas)
+        if not carrera_existente:
+            tokens = [
+                t for t in re.sub(r'[^\w\s]', ' ', nb).split()
+                if len(t) >= 4 and t not in ['carrera', 'trail', 'media', 'maraton', 'edicion', 'prueba', 'popular', 'granada', 'totalenergies']
+            ]
+            if tokens:
+                for c in carreras_usuario:
+                    nc = _sin_acentos_local(c.nombre)
+                    if all(t in nc for t in tokens):
+                        carrera_existente = c
+                        break
+                if not carrera_existente:
+                    for c in carreras_usuario:
+                        nc = _sin_acentos_local(c.nombre)
+                        if any(t in nc for t in tokens):
+                            carrera_existente = c
+                            break
 
         if not carrera_existente:
-             # Si no existe, buscamos si tiene alguna carrera ese año con nombre similar
-             # Esto es un fallback por si el nombre varía ligeramente
-             print(f"⚠️ Búsqueda exacta falló. Buscando aproximada para user {user_id}...")
-             carrera_existente = db.query(CarreraDB).filter(
-                CarreraDB.user_id == user_id,
-                CarreraDB.nombre.ilike(f"%{nombre_carrera[:5]}%") 
-             ).first()
-             
-        if not carrera_existente:
-            print(f"⚠️ No se puede guardar el resultado: La carrera '{nombre_carrera}' no existe en la BD del usuario {user_id}.")
+            print(f"Aviso: La carrera '{nombre_carrera}' no se pudo asociar a ninguna registrada del usuario {user_id}.")
             return
 
-        # 2. Creamos el registro del resultado
-        nuevo_resultado = ResultadoDB(
-            carrera_id=carrera_existente.id,
-            tiempo_oficial=datos_ia.tiempo_oficial or "No encontrado",
-            posicion_general=datos_ia.posicion_general,
-            posicion_categoria=datos_ia.posicion_categoria,
-            ritmo_medio=datos_ia.ritmo_medio,
-            confianza=int(datos_ia.confianza * 100) if datos_ia.confianza else None,
-            comentarios=f"Auto {año}"
-        )
+        resultado_existente = db.query(ResultadoDB).filter(ResultadoDB.carrera_id == carrera_existente.id).first()
 
-        db.add(nuevo_resultado)
+        if resultado_existente:
+            resultado_existente.tiempo_oficial = datos_ia.tiempo_oficial
+            resultado_existente.posicion_general = datos_ia.posicion_general
+            resultado_existente.posicion_categoria = datos_ia.posicion_categoria
+            resultado_existente.ritmo_medio = datos_ia.ritmo_medio
+            resultado_existente.confianza = int(datos_ia.confianza * 100) if datos_ia.confianza else None
+            resultado_existente.comentarios = f"Auto {año}"
+        else:
+            nuevo_resultado = ResultadoDB(
+                carrera_id=carrera_existente.id,
+                tiempo_oficial=datos_ia.tiempo_oficial,
+                posicion_general=datos_ia.posicion_general,
+                posicion_categoria=datos_ia.posicion_categoria,
+                ritmo_medio=datos_ia.ritmo_medio,
+                confianza=int(datos_ia.confianza * 100) if datos_ia.confianza else None,
+                comentarios=f"Auto {año}"
+            )
+            db.add(nuevo_resultado)
+
         db.commit()
-        print(f"✅ Resultado guardado para: {nombre_carrera}")
+        print(f"[OK] Resultado guardado para: {nombre_carrera}")
 
-    except ValueError as e:
-        # Carrera no encontrada
-        print(f"⚠️ Aviso al guardar resultado: {e}")
     except Exception as e:
-        # Otros errores de BD o inesperados
-        print(f"❌ Error al guardar resultado: {e}")
+        db.rollback()
+        print(f"[Error al guardar resultado] {e}")
     finally:
         db.close()
 

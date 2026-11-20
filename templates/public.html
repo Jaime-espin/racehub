@@ -3,286 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RaceHub - Mi Calendario</title>
+    <title>RaceHub - Calendario Deportivo</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
     <div class="container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin: 0;">🏃‍♂️ RaceHub</h1>
-            <div class="toggle-container">
-                <button id="btnTabla" class="toggle-btn active" onclick="cambiarVista('tabla')">📋 Tabla</button>
-                <button id="btnCalendario" class="toggle-btn" onclick="cambiarVista('calendario')">📅 Calendario</button>
+        <header class="header-row">
+            <div class="brand-section">
+                <h1 class="brand-title" id="tituloPublico">RaceHub</h1>
+                <div class="view-switch">
+                    <button id="btnTabla" class="active" onclick="cambiarVista('tabla')">Tabla</button>
+                    <button id="btnCalendario" onclick="cambiarVista('calendario')">Calendario</button>
+                </div>
             </div>
-        </div>
-        
-        <div id="loading">
-            <div class="spinner"></div> Analizando webs oficiales, espera unos segundos...
-        </div>
+            <div>
+                <a href="/" class="btn btn-primary" style="text-decoration:none;">Crear mi propio calendario</a>
+            </div>
+        </header>
 
-        <div id="confirmacion"></div>
-
-        <div id="lista-carreras">Cargando datos...</div>
+        <main id="lista-carreras">
+            <div class="empty-state">Cargando carreras compartidas...</div>
+        </main>
     </div>
 
     <script>
         const shareToken = "{{ share_token }}";
         const ownerName = "{{ owner_name }}";
-
-        let datosEncontrados = null;
-        let vistaActual = 'tabla'; // 'tabla' o 'calendario'
         let carrerasCache = [];
+        let vistaActual = 'tabla';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (ownerName && ownerName !== 'None' && ownerName !== 'nulo') {
+                document.getElementById('tituloPublico').textContent = `Calendario de ${ownerName}`;
+                document.title = `RaceHub - Calendario de ${ownerName}`;
+            }
+            cargarCarreras();
+        });
 
         function cambiarVista(vista) {
             vistaActual = vista;
             document.getElementById('btnTabla').classList.toggle('active', vista === 'tabla');
             document.getElementById('btnCalendario').classList.toggle('active', vista === 'calendario');
-            renderizarCarreras(carrerasCache);
+            renderizar();
         }
 
         async function cargarCarreras() {
-            let url = '/carreras';
-            if (shareToken && shareToken !== "None" && shareToken.trim() !== "") {
-                 url = `/api/share/${shareToken}/carreras`;
-                 // Update title if viewing someone else's calendar
-                 if (ownerName && ownerName !== "nulo" && ownerName !== "None") {
-                      document.querySelector('h1').innerText = `🏃‍♂️ Calendario de ${ownerName}`;
-                 }
+            try {
+                const res = await fetch(`/api/share/${shareToken}/carreras`);
+                if (!res.ok) throw new Error('Calendario no disponible');
+                carrerasCache = await res.json();
+                renderizar();
+            } catch (err) {
+                document.getElementById('lista-carreras').innerHTML = '<div class="empty-state">No se pudo cargar el calendario compartido.</div>';
             }
-
-            const response = await fetch(url);
-            const carreras = await response.json();
-            carrerasCache = carreras;
-            renderizarCarreras(carreras);
         }
 
-        function renderizarCarreras(carreras) {
-            const listaDiv = document.getElementById('lista-carreras');
-            
-            if (!carreras || carreras.length === 0) {
-                listaDiv.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">📭 No se añadió ninguna carrera todavía.</p>';
+        function renderizar() {
+            const container = document.getElementById('lista-carreras');
+            if (!carrerasCache || carrerasCache.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hay carreras en este calendario.</div>';
                 return;
             }
-            
-            carreras.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-            
+
+            carrerasCache.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            const hoy = new Date();
+            hoy.setHours(0, 0, 0, 0);
+
             if (vistaActual === 'tabla') {
-                renderizarTabla(carreras, listaDiv);
-            } else {
-                renderizarCalendario(carreras, listaDiv);
-            }
-        }
-
-        function renderizarTabla(carreras, listaDiv) {
-            let html = `<table>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Carrera</th>
-                    <th>Deporte</th>
-                    <th>Lugar</th>
-                    <th>Estado</th>
-                </tr>`;
-
-            const hoy = new Date();
-            hoy.setHours(0,0,0,0);
-
-            carreras.forEach(c => {
-                const fechaCarrera = new Date(c.fecha);
-                const esPasada = fechaCarrera < hoy;
-                
-                let estadoHtml = `<span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>`;
-                
-                if (esPasada) {
-                    estadoHtml = `<span class="badge cerrada">Finalizada</span>`;
-                }
-
-                html += `<tr>
-                    <td>${c.fecha}</td>
-                    <td>
-                        <strong>${c.nombre}</strong><br>
-                        <small style="color:#777">${c.distancia_resumen || ''}</small>
-                    </td>
-                    <td>${c.deporte}</td>
-                    <td>${c.localizacion}</td>
-                    <td>${estadoHtml}</td>
-                </tr>`;
-            });
-            html += '</table>';
-            listaDiv.innerHTML = html;
-        }
-
-        function renderizarCalendario(carreras, listaDiv) {
-            // Agrupar carreras por mes
-            const carrerasPorMes = {};
-            const hoy = new Date();
-            hoy.setHours(0,0,0,0);
-
-            carreras.forEach(c => {
-                const fecha = new Date(c.fecha);
-                const mesKey = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-                if (!carrerasPorMes[mesKey]) {
-                    carrerasPorMes[mesKey] = [];
-                }
-                carrerasPorMes[mesKey].push(c);
-            });
-
-            let html = '<div class="calendario-container">';
-            
-            Object.keys(carrerasPorMes).sort().forEach(mesKey => {
-                const [ano, mes] = mesKey.split('-');
-                const nombreMes = new Date(ano, mes - 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-                
-                html += `<div class="mes-grupo">
-                    <h3 class="mes-titulo">${nombreMes.charAt(0).toUpperCase() + nombreMes.slice(1)}</h3>
-                    <div class="carreras-mes">`;
-                
-                carrerasPorMes[mesKey].forEach(c => {
+                let rows = '';
+                carrerasCache.forEach(c => {
                     const fecha = new Date(c.fecha);
-                    const dia = fecha.getDate();
-                    const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
                     const esPasada = fecha < hoy;
-                    const clasePasada = esPasada ? 'carrera-pasada' : '';
+                    const res = c.resultados?.[0];
+                    const estado = esPasada ? '<span class="badge badge-finalizada">Finalizada</span>' : `<span class="badge badge-${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>`;
                     
-                    let estadoHtml = `<span class="badge ${c.estado_inscripcion || 'pendiente'}">${c.estado_inscripcion || 'Pendiente'}</span>`;
-                    
-                    if (esPasada) {
-                        estadoHtml = `<span class="badge cerrada">Finalizada</span>`;
+                    let resInfo = '';
+                    if (res && res.tiempo_oficial) {
+                        resInfo = `<div style="font-size:12px; color:var(--primary); margin-top:2px;">Tiempo: ${res.tiempo_oficial} (Pos. #${res.posicion_general || '--'})</div>`;
                     }
-                    
-                    html += `<div class="carrera-card ${clasePasada}">
-                        <div class="carrera-fecha">
-                            <div class="dia">${dia}</div>
-                            <div class="dia-semana">${diaSemana}</div>
-                        </div>
-                        <div class="carrera-info">
-                            <h4>${c.nombre}</h4>
-                            <p><strong>📍</strong> ${c.localizacion}</p>
-                            <p><strong>🏃</strong> ${c.deporte} - ${c.distancia_resumen || ''}</p>
-                            ${estadoHtml}
-                        </div>
-                    </div>`;
-                });
-                
-                html += '</div></div>';
-            });
-            
-            html += '</div>';
-            listaDiv.innerHTML = html;
-        }
 
-        async function buscarCarrera() {
-            const input = document.getElementById('nombreInput');
-            const btn = document.getElementById('btnBuscar');
-            const loading = document.getElementById('loading');
-            const confirmacionDiv = document.getElementById('confirmacion');
-            const nombre = input.value;
-
-            if (!nombre) return alert("Escribe un nombre primero");
-
-            // Ocultar confirmación previa si existe
-            confirmacionDiv.style.display = 'none';
-
-            // Interfaz: Bloqueamos botón y mostramos carga
-            btn.disabled = true;
-            loading.style.display = 'block';
-
-            try {
-                const response = await fetch('/carreras/buscar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nombre: nombre })
-                });
-
-                if (response.ok) {
-                    datosEncontrados = await response.json();
-                    
-                    // Mostrar datos encontrados para confirmación
-                    confirmacionDiv.innerHTML = `
-                        <div style="background: #e8f5e9; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #27ae60;">
-                            <h3 style="margin-top: 0; color: #27ae60;">📋 Datos encontrados por la IA:</h3>
-                            <p><strong>🏆 Nombre:</strong> ${datosEncontrados.nombre_oficial}</p>
-                            <p><strong>🚴 Deporte:</strong> ${datosEncontrados.deporte}</p>
-                            <p><strong>📅 Fecha:</strong> ${datosEncontrados.fecha}</p>
-                            <p><strong>📍 Lugar:</strong> ${datosEncontrados.lugar}</p>
-                            <p><strong>📏 Distancias:</strong> ${datosEncontrados.distancias.join(', ')}</p>
-                            <p><strong>🔗 URL:</strong> ${datosEncontrados.url_oficial || 'No disponible'}</p>
-                            <p><strong>📝 Estado:</strong> ${datosEncontrados.estado_inscripcion}</p>
-                            
-                            <div style="margin-top: 20px; display: flex; gap: 10px;">
-                                <button onclick="confirmarGuardado()" style="background: #27ae60;">✅ Confirmar y Guardar</button>
-                                <button onclick="cancelarBusqueda()" style="background: #e74c3c;">❌ Cancelar</button>
-                            </div>
-                        </div>
+                    rows += `
+                        <tr>
+                            <td><strong>${c.fecha}</strong></td>
+                            <td>
+                                <div class="race-title">${c.nombre}</div>
+                                <div class="race-subtitle">${c.distancia_resumen || ''}</div>
+                                ${resInfo}
+                            </td>
+                            <td>${c.deporte}</td>
+                            <td>${c.localizacion || '-'}</td>
+                            <td>${estado}</td>
+                        </tr>
                     `;
-                    confirmacionDiv.style.display = 'block';
-                    input.value = ''; // Limpiar input
-                } else {
-                    const error = await response.json();
-                    alert("❌ Error: " + (error.detail || "No se pudo procesar"));
-                }
-            } catch (err) {
-                alert("❌ Error de conexión: " + err);
-            } finally {
-                // Interfaz: Restauramos estado
-                btn.disabled = false;
-                loading.style.display = 'none';
-            }
-        }
-
-        async function confirmarGuardado() {
-            if (!datosEncontrados) return;
-
-            try {
-                const response = await fetch('/carreras/confirmar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(datosEncontrados)
                 });
 
-                if (response.ok) {
-                    document.getElementById('confirmacion').style.display = 'none';
-                    cargarCarreras();
-                    alert("✅ ¡Carrera guardada correctamente!");
-                    datosEncontrados = null;
-                } else {
-                    const error = await response.json();
-                    alert("❌ Error al guardar: " + (error.detail || "No se pudo guardar"));
-                }
-            } catch (err) {
-                alert("❌ Error de conexión al guardar");
-            }
-        }
-
-        function cancelarBusqueda() {
-            document.getElementById('confirmacion').style.display = 'none';
-            datosEncontrados = null;
-            alert("❌ Operación cancelada");
-        }
-
-        async function eliminarCarrera(id, nombre) {
-            if (!confirm(`¿Estás seguro de eliminar "${nombre}"?`)) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/carreras/${id}`, {
-                    method: 'DELETE'
+                container.innerHTML = `
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Carrera</th>
+                                    <th>Deporte</th>
+                                    <th>Lugar</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                const agrupadas = {};
+                carrerasCache.forEach(c => {
+                    const d = new Date(c.fecha);
+                    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    if (!agrupadas[key]) agrupadas[key] = [];
+                    agrupadas[key].push(c);
                 });
 
-                if (response.ok) {
-                    cargarCarreras();
-                    alert(`✅ Carrera "${nombre}" eliminada correctamente`);
-                } else {
-                    const error = await response.json();
-                    alert("❌ Error al eliminar: " + (error.detail || "No se pudo eliminar"));
-                }
-            } catch (err) {
-                alert("❌ Error de conexión al eliminar");
+                let html = '<div class="calendar-view">';
+                Object.keys(agrupadas).sort().forEach(key => {
+                    const [ano, mes] = key.split('-');
+                    const mesNombre = new Date(ano, mes - 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+                    const titulo = mesNombre.charAt(0).toUpperCase() + mesNombre.slice(1);
+
+                    html += `<div class="month-group"><h3>${titulo}</h3><div class="cards-grid">`;
+                    agrupadas[key].forEach(c => {
+                        const fecha = new Date(c.fecha);
+                        const esPasada = fecha < hoy;
+                        const dia = fecha.getDate();
+                        const diaSemana = fecha.toLocaleDateString('es-ES', { weekday: 'short' });
+                        const res = c.resultados?.[0];
+
+                        let resInfo = '';
+                        if (res && res.tiempo_oficial) {
+                            resInfo = `<div style="font-size:12px; color:var(--primary); margin-top:4px;">Tiempo: ${res.tiempo_oficial} (Pos. #${res.posicion_general || '--'})</div>`;
+                        }
+
+                        html += `
+                            <div class="calendar-card" style="${esPasada ? 'opacity:0.85; background:#fbfcfe;' : ''}">
+                                <div class="calendar-date-badge">
+                                    <div class="day">${dia}</div>
+                                    <div class="weekday">${diaSemana}</div>
+                                </div>
+                                <div class="calendar-card-info">
+                                    <div class="race-title">${c.nombre}</div>
+                                    <div class="race-subtitle">${c.deporte}${c.distancia_resumen ? ' • ' + c.distancia_resumen : ''} • ${c.localizacion || '-'}</div>
+                                    <div style="margin-top:6px;">
+                                        <span class="badge badge-${esPasada ? 'finalizada' : (c.estado_inscripcion || 'pendiente')}">${esPasada ? 'Finalizada' : (c.estado_inscripcion || 'Pendiente')}</span>
+                                    </div>
+                                    ${resInfo}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    html += '</div></div>';
+                });
+                html += '</div>';
+                container.innerHTML = html;
             }
         }
-
-        // Cargar al inicio
-        cargarCarreras();
     </script>
 </body>
 </html>

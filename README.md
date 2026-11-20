@@ -1,202 +1,148 @@
-# 🏃 RaceHub - Tu Calendario Deportivo Personal
+# RaceHub - Calendario Deportivo Personal
 
-RaceHub es una herramienta que **automatiza la creación de un calendario deportivo personal**. Utiliza Inteligencia Artificial para:
-
-- 🔍 **Buscar carreras** en internet automáticamente
-- 📊 **Extraer información oficial** (fechas, distancias, ubicación)
-- 💾 **Organizar en base de datos** local visualizable vía web
-- 🎯 **Buscar tus resultados** en portales de eventos
+RaceHub es una plataforma disenada para automatizar la planificacion, gestion y seguimiento de un calendario deportivo personal (running, trail, ciclismo, gravel y triatlon).
 
 ---
 
-## 🚀 Quick Start (30 segundos)
+## Integracion de Inteligencia Artificial en el Frontend
+
+El frontend de RaceHub se comunica de forma directa con los motores de Inteligencia Artificial (Groq mediante modelos Llama y Tavily Search) para automatizar tareas complejas desde la interfaz de usuario:
+
+1. **Alta asistida por IA en tiempo real**:
+   - El usuario introduce unicamente el nombre o referencia de la carrera en el buscador web (por ejemplo, "Maraton de Valencia 2025" o "Behobia San Sebastian").
+   - El frontend orquesta la peticion hacia el servicio de IA, que investiga las fuentes oficiales en internet y devuelve los datos maestros estructurados: nombre oficial, deporte, fecha de la proxima edicion, distancias homologadas, localizacion, enlace web oficial y estado de la inscripcion.
+   - La interfaz muestra una tarjeta de previsualizacion interactiva para que el corredor valide los datos extraidos por la IA antes de confirmarlos en base de datos.
+
+2. **Rastreo y extraccion de marcas y clasificaciones con IA**:
+   - En pruebas finalizadas, el frontend ofrece un dialogo unificado con soporte para tres vias de obtencion de marca:
+     - **Busqueda automatica en la red**: la IA rastrea plataformas de cronometraje y clasificaciones oficiales buscando el nombre y apellidos del corredor.
+     - **Procesamiento de documentos**: el usuario puede arrastrar o seleccionar un archivo PDF, CSV o Excel oficial de clasificaciones; el frontend remite el documento al motor de analisis para localizar tiempos oficiales, ritmo medio y posicion absoluta y por categoria.
+     - **Entrada manual**: formulario directo de soporte en caso de que no existan listados digitales.
+
+3. **Planificacion y deteccion de colisiones en el cliente**:
+   - Filtros rapidos por ciclo de decision: *Candidatas*, *Seleccionadas*, *Inscritas* y *Descartadas*.
+   - El frontend evalua en tiempo real las fechas de las pruebas seleccionadas e inscritas para alertar visualmente sobre colisiones de calendario cuando dos competiciones coinciden el mismo dia.
+
+---
+
+## Inicio Rapido
+
+### Requisitos previos
+- Python 3.10 o superior
+- PostgreSQL activo
+- Clave de API de Groq (gratuita en console.groq.com)
+- Clave de API de Tavily (gratuita en tavily.com)
+
+### Pasos de instalacion
 
 ```bash
-# 1. Clonar y entrar
+# 1. Clonar el repositorio
 git clone https://github.com/tu_usuario/racehub.git && cd racehub
 
-# 2. Configurar
+# 2. Configurar variables de entorno
 cp .env.example .env
-# Edita .env con tus claves (Groq + Tavily - ambas gratis)
+# Edita .env con tus claves de Groq, Tavily y la URL de PostgreSQL
 
-# 3. Instalar
+# 3. Entorno virtual e instalacion de dependencias
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate  # En Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 4. Base de datos
-psql -U jaime -d racehub -f db/schema.sql
+# 4. Inicializar base de datos
+psql -U usuario -d racehub -f db/schema.sql
 
-# 5. Ejecutar
+# 5. Iniciar la aplicacion
 python -m uvicorn src.api:app --reload
 ```
 
-Abre: **http://127.0.0.1:8000**
+Abre en tu navegador: **http://127.0.0.1:8000**
 
 ---
 
-## 📚 Documentación
+## Documentacion
 
-| Documento | Descripción |
-|-----------|----------|
-| [01-SETUP.md](./docs/01-SETUP.md) | 🔧 Instalación paso a paso |
-| [02-ARCHITECTURE.md](./docs/02-ARCHITECTURE.md) | 🏗️ Cómo funciona internamente |
-| [03-USER-GUIDE.md](./docs/03-USER-GUIDE.md) | 👤 Cómo usar la aplicación |
-| [04-API-REFERENCE.md](./docs/04-API-REFERENCE.md) | 📡 Endpoints REST detallados |
-| [05-TROUBLESHOOTING.md](./docs/05-TROUBLESHOOTING.md) | 🔧 Resolver problemas |
-
----
-
-## 🎯 Características
-
-### ✅ Implementadas
-
-- 📅 **Calendario visual** de carreras
-- 🤖 **IA para buscar carreras** (Tavily + Groq Llama 3.3)
-- 🔐 **Autenticación por email** (cookies)
-- 📤 **Búsqueda de resultados** en portales conocidos
-- 📎 **Subida de archivos** (PDF/CSV con resultados)
-- 🌐 **Calendario compartible** (link público)
-- 🗄️ **Base de datos** PostgreSQL local
-
-### 🔜 Roadmap
-
-- [ ] Edición de carreras desde UI
-- [ ] Notificaciones de aperturas de inscripción
-- [ ] Integración con Google Calendar
-- [ ] Estadísticas personales (tiempos, VO₂max, etc.)
-- [ ] Desafíos/retos entre amigos
-- [ ] Caché Redis para búsquedas rápidas
-- [ ] Autenticación OAuth2 + JWT
+| Documento | Descripcion |
+|---|---|
+| [01-SETUP.md](./docs/01-SETUP.md) | Guia de instalacion y configuracion del entorno |
+| [02-ARCHITECTURE.md](./docs/02-ARCHITECTURE.md) | Arquitectura del sistema, capas y flujo de datos |
+| [03-USER-GUIDE.md](./docs/03-USER-GUIDE.md) | Manual de uso de la aplicacion y planificacion |
+| [04-API-REFERENCE.md](./docs/04-API-REFERENCE.md) | Especificacion completa de endpoints REST |
+| [05-TROUBLESHOOTING.md](./docs/05-TROUBLESHOOTING.md) | Resolucion de incidencias y preguntas frecuentes |
 
 ---
 
-## 🛠️ Tech Stack
+## Caracteristicas Principales
 
-| Capa | Tecnología |
-|------|-----------|
-| **Frontend** | HTML5, CSS3, Vanilla JavaScript |
-| **Backend** | FastAPI (Python) |
-| **BD** | PostgreSQL + SQLAlchemy ORM |
-| **IA** | Groq (LLM Llama 3.3) + Tavily (búsqueda) |
-| **Deploy** | Procfile para Heroku (opcional) |
+- **Frontend reactivo con IA**: busqueda automatizada de carreras y extraccion de marcas en clasificaciones.
+- **Doble visualizacion**: alternancia entre vista de Tabla interactiva (con filas de resultados desplegables) y Calendario mensual organizado.
+- **Sistema de planificacion**: ciclo de vida de la carrera (candidata, seleccionada, inscrita, descartada) con alertas de colision de fechas.
+- **Autenticacion ligera**: gestion de sesion por email mediante cookies seguras.
+- **Calendario publico**: generacion de enlace unico (`/share/{token}`) para compartir el calendario en modo solo lectura.
+- **Persistencia robusta**: PostgreSQL con modelos ORM de SQLAlchemy y migraciones automaticas de esquema.
 
 ---
 
-## 📦 Estructura
+## Stack Tecnologico
+
+| Capa | Tecnologia |
+|---|---|
+| Frontend | HTML5, CSS3 (variables nativas), Vanilla JavaScript integrado con endpoints de IA |
+| Backend | FastAPI (Python) con Pydantic para validacion estricta |
+| Base de Datos | PostgreSQL + SQLAlchemy ORM |
+| Inteligencia Artificial | Groq (Llama 3.3 70B Versatile) + Tavily Search API |
+| Procesamiento de Documentos | PyPDF2 y parsers CSV |
+
+---
+
+## Estructura del Proyecto
 
 ```
 racehub/
-├── src/               # Código Python
-│   ├── main.py       # Núcleo: búsqueda + guardado
-│   ├── api.py        # API REST con FastAPI
-│   ├── database.py    # Modelos ORM
-│   └── busqueda_*.py  # Búsqueda avanzada
-├── templates/        # HTML (Jinja2)
-├── static/           # CSS + JavaScript
-├── db/               # Esquema SQL
-├── docs/             # Documentación
-└── requirements-clean.txt  # Dependencias (simplificado)
+├── src/
+│   ├── main.py              # Logica principal de extraccion con IA y guardado
+│   ├── api.py               # Endpoints REST de FastAPI y autenticacion
+│   ├── database.py          # Modelos ORM, conexion SQLAlchemy y migraciones
+│   └── busqueda_realista.py # Busqueda especializada de resultados y lectura de archivos
+├── templates/
+│   ├── index.html           # Interfaz principal de usuario
+│   └── public.html          # Vista publica compartida
+├── static/
+│   ├── styles.css           # Sistema de diseno y estilos unificados
+│   └── script.js            # Logica del frontend y comunicacion con la API
+├── db/
+│   └── schema.sql           # Esquema relacional de PostgreSQL
+├── docs/                    # Documentacion tecnica detallada
+├── requirements.txt         # Dependencias de Python del proyecto
+├── .env.example             # Plantilla de variables de configuracion
+└── Procfile                 # Archivo de despliegue para plataformas cloud
 ```
 
 ---
 
-## 🔐 Variables de Entorno Requeridas
+## Variables de Entorno
 
 ```env
-# API Keys (gratis en sus sitios web)
-GROQ_API_KEY=xxx          # https://console.groq.com
-TAVILY_API_KEY=xxx        # https://tavily.com
+# Claves de acceso a servicios de Inteligencia Artificial
+GROQ_API_KEY=tu_clave_de_groq
+TAVILY_API_KEY=tu_clave_de_tavily
 
-# Base de datos
-DATABASE_URL=postgresql://usuario:password@localhost:5432/racehub
+# Conexion a base de datos
+DATABASE_URL=postgresql://usuario:contrasena@localhost:5432/racehub
 ```
 
 ---
 
-## 💡 Ejemplos de Uso
+## Contribuir
 
-### CLI - Buscar una carrera
-
-```bash
-python src/main.py
-# Escribe: "Barcelona Marathon 2026"
-# La IA busca la información oficial
-# Confirmas si está correcta
-# ¡Se guarda en tu calendario!
-```
-
-### Web API - Buscar resultado
-
-```bash
-curl -X POST http://127.0.0.1:8000/resultados/buscar \
-  -H \"Content-Type: application/json\" \
-  -d '{
-    \"nombre_carrera\": \"Barcelona Marathon 2026\",
-    \"anio\": 2026,
-    \"nombre_corredor\": \"Jaime Espín\"
-  }' \
-  -b cookies.txt
-```
+1. Crea una bifurcacion (fork) del proyecto.
+2. Crea una rama para tu funcionalidad (`git checkout -b feature/nueva-funcionalidad`).
+3. Realiza los cambios y documentalos con commits claros.
+4. Envia tu rama (`git push origin feature/nueva-funcionalidad`).
+5. Abre un Pull Request describiendo las modificaciones realizadas.
 
 ---
 
-## 🎓 Conceptos Clave
+## Licencia y Creditos
 
-### Búsqueda Inteligente
-- **Tavily API**: Motor de búsqueda optimizado para IA (evita ruido)
-- **Groq LLM**: Extrae datos estructurados (no texto libre)
-- **Pydantic**: Valida que la IA responda en formato JSON correcto
+Desarrollado por Jaime Espin Rodriguez. Proyecto enfocado en simplificar y automatizar la organizacion deportiva mediante Inteligencia Artificial.
 
-### Resultados
-- **Estrategia múltiple**: Portales conocidos → Web → Subida manual
-- **Regex flexible**: Detecta nombres con variaciones (acentos, orden, etc.)
-- **Puntuación de confianza**: 0.9 (alta) = regex, 0.65 (baja) = LLM
-
-### Base de Datos
-- **SQLAlchemy ORM**: Python habla con PostgreSQL como objetos
-- **Control de duplicados**: Impide guarrar la misma carrera 2 veces
-- **Relaciones**: Usuarios → Carreras → Resultados
-
----
-
-## 🤝 Contribuir
-
-Este es un proyecto personal pero las contribuciones son bienvenidas:
-
-1. **Fork** el repo
-2. **Crea rama**: `git checkout -b feature/mi-feature`
-3. **Commit**: `git commit -am \"Agrego feature\"`
-4. **Push**: `git push origin feature/mi-feature`
-5. **PR**: Abre un Pull Request
-
----
-
-## ✨ Credits
-
-**Creado por**: Jaime Espín Rodríguez
-**Última actualización**: 25 de Marzo 2026  
-**Versión**: 2.0 (con búsqueda de resultados)
-
----
-
-## 🐛 Encontraste un Bug?
-
-1. 🔍 **Revisa [TROUBLESHOOTING.md](./docs/05-TROUBLESHOOTING.md)**
-2. 📝 **Abre un issue** con:
-   - Descripción del problema
-   - Pasos para reproducir
-   - Logs/errores
-3. 💬 **O contacta** directamente
-
----
-
-## 📞 Soporte
-
-- 📖 **Documentación**: [./docs/](./docs/)
-- 🐛 **Issues**: https://github.com/tu_usuario/racehub/issues
-- 📧 **Email**: tu_email@example.com
-
----
-
-**Hecho con ❤️ para runners, ciclistas y triatletas** 🏃‍♂️🚴‍♀️🏊‍♂️

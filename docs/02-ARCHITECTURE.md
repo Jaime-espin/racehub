@@ -1,6 +1,6 @@
-# 🏗️ Arquitectura de RaceHub
+# Arquitectura de RaceHub
 
-## 📐 Diagrama General
+## Diagrama General
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -10,7 +10,7 @@
 ┌────────────────▼────────────────────────────────────────────┐
 │                   FastAPI Web Server                         │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  Frontend (HTML/CSS/JavaScript)  - /                │  │
+│  │  Frontend (HTML/CSS/JavaScript con IA) - /          │  │
 │  │  API REST Endpoints                                 │  │
 │  │    - POST /carreras/buscar      (buscar carrera)    │  │
 │  │    - POST /carreras/confirmar   (guardar carrera)   │  │
@@ -28,88 +28,85 @@
 └─────────┘  └─────────┘  └──────────┘
 ```
 
-## 🗂️ Estructura de Carpetas
+## Estructura de Carpetas
 
 ```
 racehub/
-├── src/                          # Código fuente Python
-│   ├── __pycache__/             # Cache de Python (ignorar)
-│   ├── main.py                  # Núcleo: búsqueda y guardado
+├── src/                          # Codigo fuente Python
+│   ├── main.py                  # Nucleo: busqueda y guardado
 │   ├── api.py                   # API REST con FastAPI
 │   ├── database.py              # Modelos ORM y conexiones
-│   ├── busqueda_realista.py    # Búsqueda avanzada de resultados
-│   └── busqueda_mejorada.py    # Búsqueda alternativa de resultados
+│   └── busqueda_realista.py    # Busqueda avanzada de resultados (portales, URL, archivos)
 │
 ├── templates/                   # Archivos HTML
 │   ├── index.html              # Interfaz principal (autenticada)
-│   └── public.html             # Versión compartida (pública)
+│   └── public.html             # Version compartida (publica)
 │
-├── static/                      # Archivos estáticos (CSS/JS/imágenes)
-│   ├── script.js               # Lógica del frontend
+├── static/                      # Archivos estaticos (CSS y JS)
+│   ├── script.js               # Logica del frontend
 │   └── styles.css              # Estilos CSS
 │
 ├── db/                         # Base de datos
 │   └── schema.sql              # Esquema de tablas
 │
-├── docs/                       # Documentación (este archivo)
-│   ├── 01-SETUP.md            # Instalación
-│   ├── 02-ARCHITECTURE.md     # Este archivo
-│   ├── 03-USER-GUIDE.md       # Guía de usuario
+├── docs/                       # Documentacion tecnica
+│   ├── 01-SETUP.md            # Instalacion
+│   ├── 02-ARCHITECTURE.md     # Arquitectura
+│   ├── 03-USER-GUIDE.md       # Guia de usuario
 │   ├── 04-API-REFERENCE.md    # Referencia API
 │   └── 05-TROUBLESHOOTING.md  # Troubleshooting
 │
-├── README.md                   # Punto de entrada de la documentación
-├── requirements-clean.txt      # Dependencias (simplificado)
-├── requirements.txt            # Dependencias (completo con transitivas)
+├── README.md                   # Punto de entrada de la documentacion
+├── requirements.txt            # Dependencias del proyecto
 ├── .env.example               # Variables de entorno template
 ├── .env                       # Variables de entorno (no versionado)
-└── Procfile                   # Configuración para Heroku (opcional)
+└── Procfile                   # Configuracion para despliegue
 ```
 
-## 🔄 Flujo de Datos
+## Flujo de Datos
 
-### 1. **Búsqueda de Carreras** (src/main.py)
+### 1. Busqueda de Carreras (src/main.py)
 
 ```
 Usuario pide: "Barcelona Marathon 2026"
     ↓
 [Tavily Search]
     - Query: "Barcelona Marathon 2026 fechas distancias"
-    - Motor de búsqueda inteligente
+    - Motor de busqueda
     ↓
 [Groq LLM + Pydantic]
     - Extrae: nombre, deporte, fecha, lugar, distancias
     - Valida contra schema CarreraSchema
     ↓
-[Human-in-the-loop]
-    - Muestra datos al usuario
-    - Pide confirmación manual (CLI)
+[Confirmacion de Usuario]
+    - Muestra datos al usuario en la interfaz web
+    - Confirmacion previa a la persistencia
     ↓
 [PostgreSQL]
     - Guarda en tabla 'carreras'
     - Control de duplicados
 ```
 
-### 2. **Búsqueda de Resultados** (src/busqueda_realista.py)
+### 2. Busqueda de Resultados (src/busqueda_realista.py)
 
 ```
-Usuario busca: "Mi tiempo en Barcelona Marathon 2026"
+Usuario busca marca en carrera finalizada
     ↓
 [Estrategia 1: Portales Conocidos]
     - Detecta si es Sportmaniacs, ChronoEmpresa, etc.
-    - Usa regex específico para cada portal
+    - Usa regex especifico para cada portal
     ↓
-[Estrategia 2: Búsqueda Web]
+[Estrategia 2: Busqueda Web]
     - Tavily busca:
-      1. "{carrera} {año} clasificación {nombre}"
-      2. "{carrera} {año} resultados pdf"
+      1. "{carrera} {ano} clasificacion {nombre}"
+      2. "{carrera} {ano} resultados pdf"
     ↓
-[Estrategia 3: Upload de Archivos]
+[Estrategia 3: Subida de Archivos]
     - Usuario sube PDF o CSV con resultados
     - Extrae texto y busca nombre
     ↓
 [Groq LLM]
-    - Extrae: tiempo, posición, ritmo
+    - Extrae: tiempo, posicion, ritmo
     - Valida contra schema ResultadoSchema
     ↓
 [PostgreSQL]
@@ -117,14 +114,14 @@ Usuario busca: "Mi tiempo en Barcelona Marathon 2026"
     - Vinculado a usuario y carrera
 ```
 
-## 🗄️ Modelo de Datos
+## Modelo de Datos
 
 ### Tabla: `users`
 ```sql
 id                INTEGER (PRIMARY KEY)
 nombre_completo   VARCHAR
 email             VARCHAR (UNIQUE)
-share_token       VARCHAR (opctional)
+share_token       VARCHAR (opcional)
 ```
 
 ### Tabla: `carreras`
@@ -138,6 +135,8 @@ localizacion      VARCHAR
 distancia_resumen VARCHAR
 url_oficial       VARCHAR
 estado_inscripcion VARCHAR (abierta, cerrada, pendiente)
+estado_planificacion VARCHAR (candidata, seleccionada, inscrita, descartada)
+fecha_inscripcion DATE
 ```
 
 ### Tabla: `resultados`
@@ -152,7 +151,7 @@ confianza         INTEGER (0-100, nivel de confianza)
 comentarios       VARCHAR
 ```
 
-## 🤖 Modelos de IA
+## Modelos de IA
 
 ### Pydantic Schemas
 
@@ -178,35 +177,23 @@ class ResultadoSchema(BaseModel):
     confianza: Optional[float]  # 0.0-1.0
 ```
 
-## 🔌 Componentes Externos
+## Componentes Externos
 
 | Componente | Uso | Sitio Web |
-|-----------|-----|----------|
-| **Tavily** | Motor de búsqueda hiper-optimizado | https://tavily.com |
+|---|---|---|
+| **Tavily** | Motor de busqueda hiper-optimizado | https://tavily.com |
 | **Groq** | LLM (Language Model) Llama 3.3 | https://groq.com |
 | **PostgreSQL** | Base de datos relacional | https://postgresql.org |
 | **FastAPI** | Framework web Python | https://fastapi.tiangolo.com |
 | **SQLAlchemy** | ORM (Object-Relational Mapping) | https://sqlalchemy.org |
 
-## 🔐 Seguridad
+## Seguridad
 
-- **Variables de entorno**: Claves API en `.env` (no versionado)
-- **Validación Pydantic**: Rechaza datos mal formados antes de la BD
-- **CORS** (opcional): Configurable en FastAPI
-- **Autenticación**: Simple basada en cookies (`user_email`)
+- **Variables de entorno**: Claves API en `.env` (no versionado).
+- **Validacion Pydantic**: Rechaza datos mal formados antes de la persistencia.
+- **Autenticacion**: Basada en cookies HTTP seguras (`user_email`).
 
-## 📈 Escalabilidad
+## Escalabilidad
 
-- **Base de datos**: PostgreSQL soporta millones de registros
-- **API**: FastAPI con uvicorn es muy rápido (ASGI)
-- **Caché**: Soporta Redis (no implementado aún)
-- **Búsqueda**: Tavily tiene plan de escalado
-
-## 🚀 Mejoras Futuras
-
-- [ ] Cache Redis para búsquedas frecuentes
-- [ ] WebSockets para búsquedas en tiempo real
-- [ ] Autenticación OAuth2 + JWT
-- [ ] Sistema de notificaciones (carreras próximas)
-- [ ] Integración con Google Calendar
-- [ ] Dashboard administrativo
+- **Base de datos**: PostgreSQL con indices en claves foraneas y emails.
+- **API**: FastAPI con uvicorn (arquitectura ASGI asincrona).
